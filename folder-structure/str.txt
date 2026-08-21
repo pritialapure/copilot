@@ -1,0 +1,24 @@
+placement-preparation-copilot
+server/
+├── src/
+│   ├── config/
+│   │   └── db.js                 # MongoDB connection
+│   ├── models/
+│   │   └── User.js               # Mongoose schema
+│   ├── controllers/
+│   │   └── auth.controller.js    # Request/response handling
+│   ├── routes/
+│   │   └── auth.routes.js        # Route definitions
+│   ├── middlewares/
+│   │   ├── auth.middleware.js    # JWT verification (protect routes)
+│   │   └── error.middleware.js   # Centralized error handler
+│   ├── utils/
+│   │   ├── generateToken.js      # JWT creation helper
+│   │   └── asyncHandler.js       # Wraps async controllers, avoids try/catch repetition
+│   ├── validators/
+│   │   └── auth.validator.js     # Input validation (express-validator)
+│   └── app.js                    # Express app setup (middlewares, routes)
+├── server.js                     # Entry point (starts server, connects DB)
+├── .env                          # Secrets (JWT_SECRET, MONGO_URI, etc.)
+├── .gitignore
+└── package.json
