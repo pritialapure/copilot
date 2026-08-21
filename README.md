@@ -142,3 +142,4 @@ npm run lint
 Uploading a new PDF resume replaces the current profile. The previous resume and its results are archived, existing matches and tailored resume versions are cleared, and internship discovery is re-synchronized for the new profile. Invalid or empty resumes are rejected without changing existing data.
 
 See [spec.md](spec.md) for the complete functional specification and acceptance criteria.
+.....
