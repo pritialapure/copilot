@@ -1,10 +1,22 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
-export const APPLICATION_STATUSES = ["SAVED", "PREPARING", "APPLIED", "INTERVIEW", "OFFER", "REJECTED"];
+const applicationSchema = new mongoose.Schema(
+  {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    internshipId: { type: mongoose.Schema.Types.ObjectId, ref: 'Internship', required: true },
+    status: {
+      type: String,
+      enum: ['SAVED', 'PREPARING', 'APPLIED', 'INTERVIEW', 'OFFER', 'REJECTED'],
+      default: 'SAVED',
+    },
+    appliedAt: { type: Date },
+    nextActionDate: { type: Date },
+    notes: { type: String, default: '' },
+  },
+  { timestamps: true }
+);
 
-// TODO: Define the fields: userId, internshipId, status (from APPLICATION_STATUSES),
-// TODO: appliedAt, nextActionDate, notes.
-// TODO: Add the unique compound index on userId + internshipId.
-const applicationSchema = new mongoose.Schema({}, { timestamps: true });
+applicationSchema.index({ userId: 1, internshipId: 1 }, { unique: true });
 
-export const Application = mongoose.model("Application", applicationSchema);
+export const Application = mongoose.model('Application', applicationSchema);
+export default Application;

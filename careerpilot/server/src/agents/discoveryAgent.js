@@ -1,46 +1,104 @@
-import { chromium } from "playwright";
-import { internshipCatalog } from "../data/internshipCatalog.js";
-import { seedInternships } from "../data/seedInternships.js";
-import { generateEmbedding } from "../services/ollamaService.js";
-import { extractSkills, uniqueStrings } from "../utils/text.js";
+import { seedInternships } from '../data/seedInternships.js';
+import { extractSkills } from '../utils/text.js';
+import { generateEmbedding } from './ollamaService.js';
+import { env } from '../config/env.js';
 
-const MAX_RESULTS = 10;
-const LIVE_DISCOVERY_ENABLED = process.env.ENABLE_LIVE_DISCOVERY !== "false";
-const LIVE_FETCH_TIMEOUT_MS = 5000;
-const LIVE_TITLE_HINT = /(intern|graduate|trainee|junior|entry[\s-]?level|apprentice)/i;
+export async function fetchLiveInternships(profile) {
+  if (!env.ENABLE_LIVE_DISCOVERY) return [];
 
-function relevanceScore(profile, internship) {
-  // TODO: Score the internship by skill overlap (x2), a preferred-role hit (x2), and a
-  // TODO: location hit.
-  return 0;
-}
+  try {
+    const term =
+      profile.preferences?.roles?.[0] ||
+      profile.skills?.[0] ||
+      'developer';
 
-function normalizeInternship(raw) {
-  // TODO: Normalize the posting: derive skillsRequired from the description when absent,
-  // TODO: default the location, source, deadline (+14 days), and postedDate.
-  return raw;
-}
+    const searchUrl = `https://remotive.com/api/remote-jobs?search=${encodeURIComponent(term)}&limit=40`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
 
-function dedupeByTitleCompany(internships) {
-  // TODO: Drop duplicates that share a title and company.
-  return internships;
-}
+    const response = await fetch(searchUrl, { signal: controller.signal });
+    clearTimeout(timeout);
 
-async function fetchLiveInternships(profile) {
-  // TODO: Best-effort fetch from the free Remotive API using the top preferred role or
-  // TODO: skill as the search term, keep only early-career titles, strip the HTML from
-  // TODO: the description, and return [] on any failure or timeout.
-  return [];
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    const jobs = data.jobs || [];
+
+    const liveInternships = jobs
+      .filter(job => {
+        const title = (job.title || '').toLowerCase();
+        return /intern|graduate|trainee|junior|entry-level|apprentice/i.test(title);
+      })
+      .map(job => ({
+        title: job.title || '',
+        company: job.company_name || '',
+        description: (job.description || '').replace(/<[^>]*>/g, ''),
+        skillsRequired: extractSkills((job.title + ' ' + job.description).toLowerCase()),
+        location: job.job_type === 'remote' ? 'Remote' : job.location || '',
+        applyLink: job.url || '',
+        source: 'Remotive (live)',
+        deadline: null,
+        postedDate: new Date(),
+        embedding: [],
+      }))
+      .filter(job => job.applyLink && job.title && job.company);
+
+    return liveInternships.slice(0, 40);
+  } catch (err) {
+    console.warn('⚠️  Live internship fetch failed, falling back to catalog:', err.message);
+    return [];
+  }
 }
 
 export async function discoverInternships(profile) {
-  // TODO: When the profile has skills or preferred roles, rank the curated catalog plus
-  // TODO: the live postings by relevance and take the top MAX_RESULTS; otherwise fall back
-  // TODO: to seedInternships. Attach an embedding to every returned internship.
-  throw new Error("discoverInternships is not implemented yet");
+  const hasSignal = (profile.skills && profile.skills.length > 0) ||
+    (profile.preferences?.roles && profile.preferences.roles.length > 0);
+
+  if (!hasSignal) {
+    return seedInternships;
+  }
+
+  // Fetch live internships (best-effort)
+  const live = await fetchLiveInternships(profile);
+
+  // Pool: dedupe catalog + live by title::company
+  const poolMap = new Map();
+  for (const internship of seedInternships) {
+    const key = `${internship.title}::${internship.company}`;
+    poolMap.set(key, internship);
+  }
+  for (const internship of live) {
+    const key = `${internship.title}::${internship.company}`;
+    if (!poolMap.has(key)) {
+      poolMap.set(key, internship);
+    }
+  }
+
+  // Score by relevance
+  const profileSkillsLower = (profile.skills || []).map(s => s.toLowerCase());
+  const rolesLower = (profile.preferences?.roles || []).map(r => r.toLowerCase());
+  const locationLower = (profile.preferences?.location || '').toLowerCase();
+
+  const scored = Array.from(poolMap.values())
+    .map(internship => {
+      const titleDescLower = `${internship.title} ${internship.description}`.toLowerCase();
+      const skillOverlap = (internship.skillsRequired || []).filter(skill =>
+        profileSkillsLower.includes(skill.toLowerCase())
+      ).length;
+      const skillScore = skillOverlap * 2;
+      const roleBoost = rolesLower.some(role => titleDescLower.includes(role)) ? 2 : 0;
+      const locationBoost = locationLower && internship.location
+        ? internship.location.toLowerCase().includes(locationLower) ? 1 : 0
+        : 0;
+      const relevanceScore = skillScore + roleBoost + locationBoost;
+
+      return { ...internship, relevanceScore };
+    })
+    .filter(i => i.relevanceScore > 0)
+    .sort((a, b) => b.relevanceScore - a.relevanceScore)
+    .slice(0, 10);
+
+  return scored.length > 0 ? scored : seedInternships;
 }
 
-export async function scrapeCompanyPage(url) {
-  // TODO: Open the page with Playwright and return its body text.
-  throw new Error("scrapeCompanyPage is not implemented yet");
-}
+export default { discoverInternships, fetchLiveInternships };

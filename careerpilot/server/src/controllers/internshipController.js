@@ -1,19 +1,33 @@
-import { seedInternships } from "../data/seedInternships.js";
-import { getAll, getOne, updateById } from "../services/repository.js";
-import { syncInternshipsForProfile } from "../services/pipelineService.js";
-import { asyncHandler } from "../utils/asyncHandler.js";
-
-async function repairDemoApplyLink(internship) {
-  // TODO: Replace an example.com apply link with the real one from the seed catalog.
-  return internship;
-}
+import { getAll, getOne, create } from '../services/repository.js';
+import { syncInternshipsForProfile } from '../services/pipelineService.js';
+import { httpError } from '../utils/httpError.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
 
 export const getInternships = asyncHandler(async (req, res) => {
-  // TODO: Respond with { internships }, newest first, each enriched with this user's match.
-  res.status(501).json({ message: "Internship listing is not implemented yet." });
+  const internships = await getAll('internships', {}, { postedDate: -1 });
+  const matches = await getAll('matches', { userId: req.userId });
+
+  const matchMap = new Map();
+  matches.forEach(m => matchMap.set(m.internshipId.toString(), m));
+
+  const enriched = internships.map(i => ({
+    ...i,
+    match: matchMap.get(i._id.toString()) || null,
+  }));
+
+  res.json({ internships: enriched });
 });
 
 export const syncInternships = asyncHandler(async (req, res) => {
-  // TODO: Run discovery for the user's profile and respond with { count, internships }.
-  res.status(501).json({ message: "Internship sync is not implemented yet." });
+  const profile = await getOne('profiles', { userId: req.userId });
+  if (!profile) {
+    throw httpError(400, 'Profile not found');
+  }
+
+  const result = await syncInternshipsForProfile(profile);
+  const internships = await getAll('internships', {}, { postedDate: -1 });
+
+  res.json({ count: result.count, internships });
 });
+
+export default { getInternships, syncInternships };

@@ -1,9 +1,13 @@
-import { Router } from "express";
-import { getInternships, syncInternships } from "../controllers/internshipController.js";
-import { requireAuth } from "../middleware/auth.js";
+import express from 'express';
+import { getInternships, syncInternships } from '../controllers/internshipController.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { authMiddleware } from '../middleware/auth.js';
 
-export const internshipRoutes = Router();
+const router = express.Router();
 
-internshipRoutes.use(requireAuth);
-internshipRoutes.get("/", getInternships);
-internshipRoutes.post("/sync", syncInternships);
+router.use(asyncHandler(authMiddleware));
+
+router.get('/', asyncHandler(getInternships));
+router.post('/sync', asyncHandler(syncInternships));
+
+export default router;
