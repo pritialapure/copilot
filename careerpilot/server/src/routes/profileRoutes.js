@@ -1,25 +1,29 @@
-import { Router } from "express";
-import multer from "multer";
-import { getProfile, getResumeHistory, updatePreferences, uploadResume } from "../controllers/profileController.js";
-import { requireAuth } from "../middleware/auth.js";
-import { httpError } from "../utils/httpError.js";
+import express from 'express';
+import multer from 'multer';
+import { getProfile, getResumeHistory, uploadResume, updatePreferences } from '../controllers/profileController.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { authMiddleware } from '../middleware/auth.js';
+
+const router = express.Router();
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    if (file.mimetype !== "application/pdf") {
-      cb(httpError(400, "Only PDF resumes are supported."));
-      return;
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF files are allowed'));
     }
-    cb(null, true);
-  }
+  },
 });
 
-export const profileRoutes = Router();
+// All profile routes require auth
+router.use(asyncHandler(authMiddleware));
 
-profileRoutes.use(requireAuth);
-profileRoutes.get("/", getProfile);
-profileRoutes.get("/history", getResumeHistory);
-profileRoutes.post("/upload-resume", upload.single("resume"), uploadResume);
-profileRoutes.patch("/preferences", updatePreferences);
+router.get('/', asyncHandler(getProfile));
+router.get('/history', asyncHandler(getResumeHistory));
+router.post('/upload-resume', upload.single('resume'), asyncHandler(uploadResume));
+router.patch('/preferences', asyncHandler(updatePreferences));
+
+export default router;
