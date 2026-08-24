@@ -1,33 +1,34 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
-import { AppShell } from "./components/AppShell";
-import { ProtectedRoute } from "./components/ProtectedRoute";
-import { Analytics } from "./pages/Analytics";
-import { ApplicationTracker } from "./pages/ApplicationTracker";
-import { Dashboard } from "./pages/Dashboard";
-import { InternshipDetails } from "./pages/InternshipDetails";
-import { InternshipExplorer } from "./pages/InternshipExplorer";
-import { Login } from "./pages/Login";
-import { Profile } from "./pages/Profile";
-import { Register } from "./pages/Register";
+import { createBrowserRouter } from 'react-router-dom';
+import App from './App';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import ProtectedRoute from './components/ProtectedRoute';
 
-export const router = createBrowserRouter([
-  { path: "/login", element: <Login /> },
-  { path: "/register", element: <Register /> },
+const router = createBrowserRouter([
   {
+    path: '/login',
+    element: <Login />,
+  },
+  {
+    path: '/register',
+    element: <Register />,
+  },
+  {
+    path: '/',
     element: <ProtectedRoute />,
     children: [
       {
-        element: <AppShell />,
-        children: [
-          { index: true, element: <Dashboard /> },
-          { path: "profile", element: <Profile /> },
-          { path: "internships", element: <InternshipExplorer /> },
-          { path: "internships/:id", element: <InternshipDetails /> },
-          { path: "tracker", element: <ApplicationTracker /> },
-          { path: "analytics", element: <Analytics /> }
-        ]
-      }
-    ]
+        index: true,
+        element: <App />,
+      },
+    ],
   },
-  { path: "*", element: <Navigate to="/" replace /> }
+  {
+    path: '*',
+    element: <Navigate to="/" />,
+  },
 ]);
+
+import { Navigate } from 'react-router-dom';
+
+export default router;

@@ -1,7 +1,12 @@
-import { Navigate, Outlet } from "react-router-dom";
-import { useAuthStore } from "../store/authStore";
+import { Navigate, Outlet } from 'react-router-dom';
+import { authStore } from '../store/authStore';
 
-export function ProtectedRoute() {
-  // TODO: Render the outlet only with a stored token, otherwise redirect to /login.
+export default function ProtectedRoute() {
+  const { token } = authStore();
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
   return <Outlet />;
 }
