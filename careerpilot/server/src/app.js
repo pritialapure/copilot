@@ -4,6 +4,9 @@ import { env } from './config/env.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import authRoutes from './routes/authRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
+import internshipRoutes from './routes/internshipRoutes.js';
+import matchRoutes from './routes/matchRoutes.js';
+import skillGapRoutes from './routes/skillGapRoutes.js';
 
 const app = express();
 
@@ -52,6 +55,9 @@ app.get('/api/health', (req, res) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/internships', internshipRoutes);
+app.use('/api/matches', matchRoutes);
+app.use('/api/skill-gap', skillGapRoutes);
 
 // 404 handler
 app.use((req, res) => {

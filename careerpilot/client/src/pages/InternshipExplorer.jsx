@@ -1,170 +1,141 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BarChart3, CheckCircle2, ExternalLink, Filter, Loader2, RefreshCw, Search } from "lucide-react";
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { applicationApi, internshipApi, matchApi } from "../api/queries";
-import { Button } from "../components/Button";
-import { ErrorBanner } from "../components/ErrorBanner";
-import { inputClass } from "../components/Field";
-import { LoadingState } from "../components/LoadingState";
-import { formatDate } from "../utils/format";
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Search, Loader, AlertCircle } from 'lucide-react';
+import { useInternships } from '../api/queries';
+import client from '../api/client';
+import { useQueryClient } from '@tanstack/react-query';
+import LoadingState from '../components/LoadingState';
+import ErrorBanner from '../components/ErrorBanner';
 
-export function InternshipExplorer() {
+export default function InternshipExplorer() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState("");
-  const [source, setSource] = useState("");
-  const [externallyAppliedId, setExternallyAppliedId] = useState("");
-  const internshipsQuery = useQuery({ queryKey: ["internships"], queryFn: internshipApi.list });
-  const syncMutation = useMutation({
-    mutationFn: internshipApi.sync,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["internships"] })
-  });
-  const matchMutation = useMutation({
-    mutationFn: matchApi.generate,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["internships"] })
-  });
-  const externalApplyMutation = useMutation({
-    mutationFn: (internship) => applicationApi.create({ internshipId: internship._id, status: "APPLIED" }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["applications"] });
-      queryClient.invalidateQueries({ queryKey: ["analytics"] });
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
-    }
-  });
+  const { data: internships, isLoading } = useInternships();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [syncing, setSyncing] = useState(false);
+  const [error, setError] = useState('');
 
-  const internships = internshipsQuery.data?.internships || [];
-  const sources = [...new Set(internships.map((item) => item.source).filter(Boolean))];
-  const filtered = useMemo(() => {
-    const value = search.toLowerCase();
-    return internships
-      .filter((item) => (source ? item.source === source : true))
-      .filter((item) => `${item.title} ${item.company} ${item.description}`.toLowerCase().includes(value))
-      .sort((a, b) => (b.match?.score || 0) - (a.match?.score || 0));
-  }, [internships, search, source]);
+  const handleSync = async () => {
+    setSyncing(true);
+    setError('');
 
-  if (internshipsQuery.isLoading) return <LoadingState label="Loading internships" />;
-
-  const handleExternalApply = async (event, internship) => {
-    event.preventDefault();
-    const externalWindow = window.open("about:blank", "_blank");
     try {
-      await externalApplyMutation.mutateAsync(internship);
-      setExternallyAppliedId(internship._id);
-      if (externalWindow) {
-        externalWindow.opener = null;
-        externalWindow.location.href = internship.applyLink;
-      } else {
-        window.open(internship.applyLink, "_blank", "noopener,noreferrer");
-      }
-    } catch (error) {
-      if (externalWindow) externalWindow.close();
+      await client.post('/internships/sync');
+      queryClient.invalidateQueries({ queryKey: ['internships'] });
+    } catch (err) {
+      setError(err.response?.data?.message || 'Sync failed');
+    } finally {
+      setSyncing(false);
     }
   };
 
-  return (
-    <div className="grid gap-5">
-      <ErrorBanner error={syncMutation.error || matchMutation.error || externalApplyMutation.error} />
-      <section className="rounded-lg border border-ink/10 bg-white p-5 shadow-soft">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-black text-ink">Internship Explorer</h2>
-            <p className="text-sm font-semibold text-ink/55">{filtered.length} opportunities</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" icon={RefreshCw} loading={syncMutation.isPending} onClick={() => syncMutation.mutate()}>
-              Sync
-            </Button>
-            <Button icon={BarChart3} loading={matchMutation.isPending} onClick={() => matchMutation.mutate()}>
-              Generate Matches
-            </Button>
-          </div>
-        </div>
-        <div className="mt-5 grid gap-3 md:grid-cols-[1fr_220px]">
-          <label className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40" />
-            <input className={`${inputClass} pl-10`} value={search} onChange={(event) => setSearch(event.target.value)} />
-          </label>
-          <label className="relative">
-            <Filter className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40" />
-            <select className={`${inputClass} pl-10`} value={source} onChange={(event) => setSource(event.target.value)}>
-              <option value="">All sources</option>
-              {sources.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      </section>
+  const filtered = internships?.filter(i =>
+    i.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    i.company.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {filtered.map((internship) => (
-          <article key={internship._id} className="rounded-lg border border-ink/10 bg-white p-5 shadow-soft">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-lg font-black text-ink">{internship.title}</h3>
-                <p className="text-sm font-semibold text-ink/55">{internship.company}</p>
-              </div>
-              <div className="grid h-14 w-16 place-items-center rounded-md bg-moss/10 text-xl font-black text-moss">
-                {internship.match?.score || 0}%
-              </div>
+  if (isLoading) return <LoadingState message="Loading internships..." />;
+
+  return (
+    <div className="min-h-screen bg-[#f7f8f3]">
+      {/* Header */}
+      <header className="bg-white shadow-soft border-b border-[#18212f]/10 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+          <h1 className="text-2xl font-black text-[#18212f]">Internship Explorer</h1>
+          <button
+            onClick={() => navigate('/')}
+            className="px-4 py-2 text-[#18212f] hover:bg-gray-100 rounded-md text-sm font-semibold transition"
+          >
+            ← Back
+          </button>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-6 py-8">
+        {error && <ErrorBanner message={error} />}
+
+        {/* Search & Sync */}
+        <div className="bg-white rounded-lg shadow-soft p-6 border border-[#18212f]/10 mb-6">
+          <div className="flex gap-3 mb-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by title or company..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1f7a5c] focus:border-transparent"
+              />
             </div>
-            <p className="mt-3 line-clamp-3 text-sm font-medium leading-6 text-ink/65">{internship.description}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {internship.skillsRequired?.slice(0, 5).map((skill) => (
-                <span key={skill} className="rounded-full bg-ink/5 px-2.5 py-1 text-xs font-black text-ink/65">
-                  {skill}
-                </span>
-              ))}
-            </div>
-            <div className="mt-5 flex items-center justify-between gap-3 text-xs font-bold text-ink/50">
-              <span>{internship.location}</span>
-              <span>Due {formatDate(internship.deadline)}</span>
-            </div>
-            <div className="mt-5 flex gap-2">
-              <Link
-                className="inline-flex min-h-10 flex-1 items-center justify-center rounded-md border border-ink/10 bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:border-moss/50"
-                to={`/internships/${internship._id}`}
-              >
-                Details
-              </Link>
-              <a
-                className={`grid h-10 w-10 place-items-center rounded-md border border-ink/10 text-ink transition hover:text-moss ${
-                  externalApplyMutation.isPending ? "cursor-not-allowed opacity-60" : ""
-                }`}
-                href={internship.applyLink}
-                onClick={(event) => {
-                  if (externalApplyMutation.isPending) {
-                    event.preventDefault();
-                    return;
-                  }
-                  handleExternalApply(event, internship);
-                }}
-                target="_blank"
-                rel="noreferrer"
-                aria-disabled={externalApplyMutation.isPending}
-                aria-label={
-                  externallyAppliedId === internship._id
-                    ? "Application recorded and page opened"
-                    : "Open application page"
-                }
-              >
-                {externalApplyMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : externallyAppliedId === internship._id ? (
-                  <CheckCircle2 className="h-4 w-4 text-moss" />
-                ) : (
-                  <ExternalLink className="h-4 w-4" />
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className="px-6 py-2 bg-[#1f7a5c] hover:bg-[#1a6450] text-white font-semibold rounded-md transition disabled:opacity-50 flex items-center gap-2"
+            >
+              {syncing && <Loader className="w-4 h-4 animate-spin" />}
+              {syncing ? 'Syncing...' : 'Sync Now'}
+            </button>
+          </div>
+          <p className="text-xs text-gray-600">Found {filtered.length} internship(s)</p>
+        </div>
+
+        {/* Internship Cards */}
+        <div className="space-y-4">
+          {filtered.map(internship => (
+            <div key={internship._id} className="bg-white rounded-lg shadow-soft p-6 border border-[#18212f]/10 hover:shadow-lg transition">
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-[#18212f]">{internship.title}</h3>
+                  <p className="text-sm text-gray-600">{internship.company}</p>
+                </div>
+                {internship.match && (
+                  <div className="text-right">
+                    <div className="text-3xl font-black text-[#1f7a5c]">{internship.match.score}%</div>
+                    <p className="text-xs text-gray-600">Match Score</p>
+                  </div>
                 )}
-              </a>
+              </div>
+
+              <p className="text-sm text-gray-700 mb-3 line-clamp-2">{internship.description}</p>
+
+              <div className="flex flex-wrap gap-2 mb-3">
+                {internship.skillsRequired?.slice(0, 3).map(skill => (
+                  <span key={skill} className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-medium">
+                    {skill}
+                  </span>
+                ))}
+                {internship.skillsRequired?.length > 3 && (
+                  <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-medium">
+                    +{internship.skillsRequired.length - 3} more
+                  </span>
+                )}
+              </div>
+
+              <div className="flex justify-between items-center">
+                <div className="text-xs text-gray-600">
+                  <p>📍 {internship.location || 'Remote'}</p>
+                  <p>📅 {internship.source || 'Catalog'}</p>
+                </div>
+                <a
+                  href={internship.applyLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 bg-[#1f7a5c] hover:bg-[#1a6450] text-white text-sm font-semibold rounded-md transition"
+                >
+                  View & Apply →
+                </a>
+              </div>
             </div>
-            {externallyAppliedId === internship._id ? (
-              <p className="mt-3 text-xs font-black text-moss">Applied externally and saved to Tracker.</p>
-            ) : null}
-          </article>
-        ))}
-      </section>
+          ))}
+        </div>
+
+        {filtered.length === 0 && (
+          <div className="text-center py-12">
+            <AlertCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+            <p className="text-gray-600">No internships found matching your search.</p>
+          </div>
+        )}
+      </main>
     </div>
   );
 }
