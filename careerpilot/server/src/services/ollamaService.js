@@ -1,19 +1,39 @@
-import axios from "axios";
-import { env } from "../config/env.js";
+import axios from 'axios';
+import { env } from '../config/env.js';
 
-const client = axios.create({
-  baseURL: env.ollamaBaseUrl,
-  timeout: 8000
+const ollamaClient = axios.create({
+  baseURL: env.OLLAMA_BASE_URL,
+  timeout: 8000,
 });
 
 export async function generateLocalText(prompt) {
-  // TODO: POST the prompt to /api/generate with env.ollamaChatModel and return the trimmed
-  // TODO: response, or "" when the local model is unavailable.
-  return "";
+  try {
+    const response = await ollamaClient.post('/api/generate', {
+      model: env.OLLAMA_CHAT_MODEL,
+      prompt,
+      stream: false,
+    });
+    return response.data?.response?.trim() || '';
+  } catch (err) {
+    console.warn('⚠️  Ollama text generation failed, using fallback:', err.message);
+    return '';
+  }
 }
 
 export async function generateEmbedding(text) {
-  // TODO: POST the text to /api/embeddings with env.ollamaEmbedModel and return the vector,
-  // TODO: or [] when the local model is unavailable.
-  return [];
+  try {
+    const response = await ollamaClient.post('/api/embeddings', {
+      model: env.OLLAMA_EMBED_MODEL,
+      prompt: text,
+    });
+    return response.data?.embedding || [];
+  } catch (err) {
+    console.warn('⚠️  Ollama embedding failed, using fallback:', err.message);
+    return [];
+  }
 }
+
+export default {
+  generateLocalText,
+  generateEmbedding,
+};
