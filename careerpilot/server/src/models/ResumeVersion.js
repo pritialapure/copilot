@@ -1,7 +1,17 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
-// TODO: Define the fields: userId, internshipId, content, changeSummary, matchedSkills,
-// TODO: missingSkills, approved.
-const resumeVersionSchema = new mongoose.Schema({}, { timestamps: true });
+const resumeVersionSchema = new mongoose.Schema(
+  {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    internshipId: { type: mongoose.Schema.Types.ObjectId, ref: 'Internship', required: true },
+    content: { type: String, default: '' },
+    changeSummary: { type: [String], default: [] },
+    matchedSkills: { type: [String], default: [] },
+    missingSkills: { type: [String], default: [] },
+    approved: { type: Boolean, default: false },
+  },
+  { timestamps: true }
+);
 
-export const ResumeVersion = mongoose.model("ResumeVersion", resumeVersionSchema);
+export const ResumeVersion = mongoose.model('ResumeVersion', resumeVersionSchema);
+export default ResumeVersion;
