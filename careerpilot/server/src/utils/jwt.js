@@ -1,12 +1,16 @@
-import jwt from "jsonwebtoken";
-import { env } from "../config/env.js";
+import jwt from 'jsonwebtoken';
+import { env } from '../config/env.js';
 
-export function signToken(user) {
-  // TODO: Sign the user id and email with env.jwtSecret and env.jwtExpiresIn.
-  return "";
+export function signToken(payload) {
+  return jwt.sign(payload, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN });
 }
 
 export function verifyToken(token) {
-  // TODO: Verify the token against env.jwtSecret and return the payload.
-  return null;
+  try {
+    return jwt.verify(token, env.JWT_SECRET);
+  } catch (err) {
+    return null;
+  }
 }
+
+export default { signToken, verifyToken };
