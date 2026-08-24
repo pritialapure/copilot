@@ -1,10 +1,20 @@
-import { getById } from "../services/repository.js";
-import { asyncHandler } from "../utils/asyncHandler.js";
-import { httpError } from "../utils/httpError.js";
-import { verifyToken } from "../utils/jwt.js";
+import { verifyToken } from '../utils/jwt.js';
+import { httpError } from '../utils/httpError.js';
 
-export const requireAuth = asyncHandler(async (req, _res, next) => {
-  // TODO: Read the Bearer token, reject with 401 when it is missing or invalid, verify it,
-  // TODO: load the user, and set req.user to { _id, name, email }.
+export function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    throw httpError(401, 'Missing or invalid authorization header');
+  }
+
+  const token = authHeader.slice(7);
+  const decoded = verifyToken(token);
+  if (!decoded) {
+    throw httpError(401, 'Invalid or expired token');
+  }
+
+  req.userId = decoded.userId;
   next();
-});
+}
+
+export default authMiddleware;

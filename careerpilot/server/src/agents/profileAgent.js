@@ -1,15 +1,45 @@
-import pdfParse from "pdf-parse";
-import { generateEmbedding, generateLocalText } from "../services/ollamaService.js";
-import { extractSkills, summarizeText } from "../utils/text.js";
+import pdfParse from 'pdf-parse';
+import { extractSkills, summarizeText, sectionLines } from '../utils/text.js';
+import { generateLocalText, generateEmbedding } from './ollamaService.js';
 
-function sectionLines(text, labels) {
-  // TODO: Return up to eight resume lines that mention any of the labels.
-  return [];
+export async function parseResume(pdfBuffer) {
+  try {
+    const data = await pdfParse(pdfBuffer);
+    const resumeText = data.text.trim();
+
+    if (!resumeText || resumeText.length < 30) {
+      throw new Error('Resume text too short or empty');
+    }
+
+    // Extract profile data
+    const skills = extractSkills(resumeText);
+    const projects = sectionLines(resumeText, ['project', 'built', 'developed']);
+    const experience = sectionLines(resumeText, ['experience', 'intern', 'worked']);
+    const education = sectionLines(resumeText, ['education', 'university', 'college', 'school', 'degree']);
+
+    // Generate summary
+    let summary = summarizeText(resumeText, 220);
+    if (!summary) {
+      const aiSummary = await generateLocalText(`Summarize this resume in 1-2 sentences: ${resumeText.substring(0, 500)}`);
+      summary = aiSummary || 'Professional resume';
+    }
+
+    // Generate embedding
+    const embedding = await generateEmbedding(resumeText);
+
+    return {
+      resumeText,
+      skills,
+      projects,
+      experience,
+      education,
+      summary,
+      embedding,
+    };
+  } catch (err) {
+    console.error('❌ Resume parsing error:', err.message);
+    throw err;
+  }
 }
 
-export async function parseResume(buffer) {
-  // TODO: Extract the PDF text, then return resumeText, the detected skills, the project,
-  // TODO: experience and education lines, a local-model summary (falling back to a
-  // TODO: truncated summary), and the resume embedding.
-  throw new Error("parseResume is not implemented yet");
-}
+export default { parseResume };

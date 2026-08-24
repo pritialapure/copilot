@@ -1,15 +1,61 @@
-import { discoverInternships } from "../agents/discoveryAgent.js";
-import { scoreInternship } from "../agents/matchingAgent.js";
-import { getAll, getOne, upsert } from "./repository.js";
+import { getOne, getAll, upsert, deleteWhere } from './repository.js';
+import { discoverInternships } from '../agents/discoveryAgent.js';
+import { scoreInternship } from '../agents/matchingAgent.js';
 
 export async function syncInternshipsForProfile(profile) {
-  // TODO: Discover internships for the profile and upsert each one by title + company,
-  // TODO: returning everything that was saved.
-  throw new Error("syncInternshipsForProfile is not implemented yet");
+  try {
+    const discovered = await discoverInternships(profile);
+    const synced = [];
+
+    for (const internship of discovered) {
+      const upserted = await upsert(
+        'internships',
+        { title: internship.title, company: internship.company, applyLink: internship.applyLink },
+        internship,
+        internship
+      );
+      synced.push(upserted);
+    }
+
+    return { count: synced.length, internships: synced };
+  } catch (err) {
+    console.error('❌ syncInternshipsForProfile error:', err.message);
+    throw err;
+  }
 }
 
 export async function regenerateMatches(userId, profile) {
-  // TODO: Score every internship against the profile, upsert the match per
-  // TODO: userId + internshipId, and return the matches sorted by score descending.
-  throw new Error("regenerateMatches is not implemented yet");
+  try {
+    if (!profile.resumeText) {
+      throw new Error('Profile must have resume text');
+    }
+
+    const internships = await getAll('internships');
+    const matches = [];
+
+    for (const internship of internships) {
+      const scoreResult = await scoreInternship(profile, internship);
+      const match = await upsert(
+        'matches',
+        { userId, internshipId: internship._id },
+        {
+          userId,
+          internshipId: internship._id,
+          ...scoreResult,
+        },
+        scoreResult
+      );
+      matches.push(match);
+    }
+
+    return matches.sort((a, b) => b.score - a.score);
+  } catch (err) {
+    console.error('❌ regenerateMatches error:', err.message);
+    throw err;
+  }
 }
+
+export default {
+  syncInternshipsForProfile,
+  regenerateMatches,
+};

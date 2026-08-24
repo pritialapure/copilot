@@ -1,9 +1,12 @@
-import { Router } from "express";
-import { login, me, register } from "../controllers/authController.js";
-import { requireAuth } from "../middleware/auth.js";
+import express from 'express';
+import { register, login, getCurrentUser } from '../controllers/authController.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { authMiddleware } from '../middleware/auth.js';
 
-export const authRoutes = Router();
+const router = express.Router();
 
-authRoutes.post("/register", register);
-authRoutes.post("/login", login);
-authRoutes.get("/me", requireAuth, me);
+router.post('/register', asyncHandler(register));
+router.post('/login', asyncHandler(login));
+router.get('/me', asyncHandler(authMiddleware), asyncHandler(getCurrentUser));
+
+export default router;

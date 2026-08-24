@@ -1,21 +1,24 @@
-import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
-export const useAuthStore = create(
+export const authStore = create(
   persist(
     (set) => ({
       token: null,
       user: null,
-      setSession: ({ token, user }) => {
-        // TODO: Store the token and user in the persisted session.
+
+      setSession: (token, user) => set({ token, user }),
+      logout: () => set({ token: null, user: null }),
+      isAuthenticated: () => {
+        const state = authStore.getState();
+        return !!state.token && !!state.user;
       },
-      logout: () => {
-        // TODO: Clear the token and user.
-      }
     }),
     {
-      name: "careerpilot-session",
-      storage: createJSONStorage(() => localStorage)
+      name: 'careerpilot-session',
+      storage: typeof window !== 'undefined' ? localStorage : undefined,
     }
   )
 );
+
+export default authStore;

@@ -1,10 +1,18 @@
-import { buildSkillGapReport } from "../agents/skillGapAgent.js";
-import { getOne } from "../services/repository.js";
-import { asyncHandler } from "../utils/asyncHandler.js";
-import { httpError } from "../utils/httpError.js";
+import { getOne } from '../services/repository.js';
+import { buildSkillGapReport } from '../agents/skillGapAgent.js';
+import { httpError } from '../utils/httpError.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
 
 export const getSkillGap = asyncHandler(async (req, res) => {
-  // TODO: Load the user's match for req.params.internshipId (404 when missing) and respond
-  // TODO: with { skillGap }.
-  res.status(501).json({ message: "Skill gap report is not implemented yet." });
+  const { internshipId } = req.params;
+
+  const match = await getOne('matches', { userId: req.userId, internshipId });
+  if (!match) {
+    throw httpError(404, 'No match found for this internship');
+  }
+
+  const report = await buildSkillGapReport(match);
+  res.json({ skillGap: report });
 });
+
+export default { getSkillGap };

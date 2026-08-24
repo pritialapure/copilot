@@ -1,19 +1,35 @@
-import axios from "axios";
-import { useAuthStore } from "../store/authStore";
+import axios from 'axios';
+import { authStore } from '../store/authStore';
 
-export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api"
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+const client = axios.create({
+  baseURL: API_URL,
+  timeout: 10000,
 });
 
-api.interceptors.request.use((config) => {
-  // TODO: Attach the stored token as the Authorization bearer header.
-  return config;
-});
+// Request interceptor: add Bearer token
+client.interceptors.request.use(
+  (config) => {
+    const { token } = authStore.getState();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
-api.interceptors.response.use(
+// Response interceptor: handle 401 (logout)
+client.interceptors.response.use(
   (response) => response,
   (error) => {
-    // TODO: Log the user out when the API responds with 401.
+    if (error.response?.status === 401) {
+      authStore.getState().logout();
+      window.location.href = '/login';
+    }
     return Promise.reject(error);
   }
 );
+
+export default client;

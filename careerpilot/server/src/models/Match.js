@@ -1,7 +1,18 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
-// TODO: Define the fields: userId, internshipId, score, matchedSkills, missingSkills,
-// TODO: reason. Add the unique compound index on userId + internshipId.
-const matchSchema = new mongoose.Schema({}, { timestamps: true });
+const matchSchema = new mongoose.Schema(
+  {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    internshipId: { type: mongoose.Schema.Types.ObjectId, ref: 'Internship', required: true },
+    score: { type: Number, default: 0, min: 0, max: 100 },
+    matchedSkills: { type: [String], default: [] },
+    missingSkills: { type: [String], default: [] },
+    reason: { type: String, default: '' },
+  },
+  { timestamps: true }
+);
 
-export const Match = mongoose.model("Match", matchSchema);
+matchSchema.index({ userId: 1, internshipId: 1 }, { unique: true });
+
+export const Match = mongoose.model('Match', matchSchema);
+export default Match;

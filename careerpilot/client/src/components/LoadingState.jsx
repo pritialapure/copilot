@@ -1,11 +1,11 @@
-import { Loader2 } from "lucide-react";
+import { Loader } from 'lucide-react';
 
-export function LoadingState({ label = "Loading" }) {
+export default function LoadingState({ message = 'Loading...' }) {
   return (
-    <div className="grid min-h-56 place-items-center rounded-lg border border-ink/10 bg-white">
-      <div className="flex items-center gap-2 text-sm font-bold text-ink/70">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        {label}
+    <div className="flex items-center justify-center py-12">
+      <div className="text-center">
+        <Loader className="w-8 h-8 text-[#1f7a5c] animate-spin mx-auto mb-3" />
+        <p className="text-gray-600">{message}</p>
       </div>
     </div>
   );

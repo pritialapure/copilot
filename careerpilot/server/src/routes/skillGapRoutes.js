@@ -1,8 +1,12 @@
-import { Router } from "express";
-import { getSkillGap } from "../controllers/skillGapController.js";
-import { requireAuth } from "../middleware/auth.js";
+import express from 'express';
+import { getSkillGap } from '../controllers/skillGapController.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { authMiddleware } from '../middleware/auth.js';
 
-export const skillGapRoutes = Router();
+const router = express.Router();
 
-skillGapRoutes.use(requireAuth);
-skillGapRoutes.get("/:internshipId", getSkillGap);
+router.use(asyncHandler(authMiddleware));
+
+router.get('/:internshipId', asyncHandler(getSkillGap));
+
+export default router;
