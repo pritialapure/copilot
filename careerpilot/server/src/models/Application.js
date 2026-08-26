@@ -19,4 +19,5 @@ const applicationSchema = new mongoose.Schema(
 applicationSchema.index({ userId: 1, internshipId: 1 }, { unique: true });
 
 export const Application = mongoose.model('Application', applicationSchema);
+export const APPLICATION_STATUSES = ['SAVED', 'PREPARING', 'APPLIED', 'INTERVIEW', 'OFFER', 'REJECTED'];
 export default Application;
