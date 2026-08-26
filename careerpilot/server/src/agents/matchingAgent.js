@@ -1,4 +1,4 @@
-import { generateLocalText } from './ollamaService.js';
+import { generateLocalText } from '../services/ollamaService.js';
 
 export async function scoreInternship(profile, internship) {
   if (!internship.skillsRequired || internship.skillsRequired.length === 0) {

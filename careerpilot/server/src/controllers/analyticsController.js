@@ -3,7 +3,9 @@ import { getAll, getOne } from "../services/repository.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 export const getAnalytics = asyncHandler(async (req, res) => {
-  // TODO: Load the user's applications, matches, the internships, and the profile, then
-  // TODO: respond with { analytics } from the feedback agent.
-  res.status(501).json({ message: "Analytics is not implemented yet." });
+  const [applications, matches, internships, profile] = await Promise.all([
+    getAll("applications", { userId: req.userId }), getAll("matches", { userId: req.userId }),
+    getAll("internships"), getOne("profiles", { userId: req.userId })
+  ]);
+  res.json({ analytics: buildAnalytics({ applications, matches, internships, profile }) });
 });

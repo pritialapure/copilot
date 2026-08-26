@@ -7,6 +7,10 @@ import profileRoutes from './routes/profileRoutes.js';
 import internshipRoutes from './routes/internshipRoutes.js';
 import matchRoutes from './routes/matchRoutes.js';
 import skillGapRoutes from './routes/skillGapRoutes.js';
+import { applicationRoutes } from './routes/applicationRoutes.js';
+import { applicationMaterialRoutes } from './routes/applicationMaterialRoutes.js';
+import { notificationRoutes } from './routes/notificationRoutes.js';
+import { analyticsRoutes } from './routes/analyticsRoutes.js';
 
 const app = express();
 
@@ -58,6 +62,10 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/internships', internshipRoutes);
 app.use('/api/matches', matchRoutes);
 app.use('/api/skill-gap', skillGapRoutes);
+app.use('/api/applications', applicationRoutes);
+app.use('/api/application-materials', applicationMaterialRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // 404 handler
 app.use((req, res) => {

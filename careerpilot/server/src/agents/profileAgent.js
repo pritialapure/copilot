@@ -1,6 +1,6 @@
 import pdfParse from 'pdf-parse';
 import { extractSkills, summarizeText, sectionLines } from '../utils/text.js';
-import { generateLocalText, generateEmbedding } from './ollamaService.js';
+import { generateLocalText, generateEmbedding } from '../services/ollamaService.js';
 
 export async function parseResume(pdfBuffer) {
   try {

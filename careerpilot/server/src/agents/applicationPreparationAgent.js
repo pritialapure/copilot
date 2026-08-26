@@ -1,34 +1,44 @@
 import { normalizeSkill, uniqueStrings } from "../utils/text.js";
 
-// TODO: Map the known skills onto their preferred display casing (JavaScript, Node.js, ...).
-const SKILL_CASING = {};
+const SKILL_CASING = { javascript: "JavaScript", typescript: "TypeScript", "node.js": "Node.js", react: "React", mongodb: "MongoDB", html: "HTML", css: "CSS", sql: "SQL", python: "Python", git: "Git", aws: "AWS", api: "API", "machine learning": "Machine Learning", tailwind: "Tailwind" };
 
 function prettySkill(skill) {
-  // TODO: Return the preferred casing for the skill, or title-case it.
-  return String(skill);
+  const value = normalizeSkill(skill);
+  return SKILL_CASING[value] || value.replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function splitSkillTokens(text) {
-  // TODO: Split a skills line on commas, pipes, slashes, semicolons, and bullets.
-  return [];
+  return String(text).split(/[,|/;•·]+/).map((item) => item.trim()).filter(Boolean);
 }
 
-// TODO: Match a resume "Skills" heading (with optional inline content after a colon).
-const SKILLS_HEADER = /^$/;
+const SKILLS_HEADER = /^\s*(?:technical\s+)?skills?\s*:?[ \t]*(.*)$/i;
 
-// TODO: Match the other section headings that terminate the skills block.
-const OTHER_HEADER = /^$/;
+const OTHER_HEADER = /^\s*(?:experience|education|projects?|certifications?|achievements?|summary|objective|languages?)\s*:?[ \t]*$/i;
 
 function tailorSkillTokens(originalTokens, requiredSkills, matchedSkills) {
-  // TODO: Reorder the tokens so the required skills the candidate has come first, then the
-  // TODO: other matched skills, then everything else in its original order.
-  return originalTokens;
+  const desired = new Set([...requiredSkills, ...matchedSkills].map(normalizeSkill));
+  return [...originalTokens].sort((a, b) => Number(desired.has(normalizeSkill(b))) - Number(desired.has(normalizeSkill(a))));
 }
 
 export async function generateResumeVariant(profile, internship) {
-  // TODO: Produce the candidate's real resume with ONLY the Skills section retailored to
-  // TODO: this role: locate the skills heading (inline or block), reorder its tokens, or
-  // TODO: insert a tailored Skills section when none exists. Never fabricate a skill.
-  // TODO: Return { content, changeSummary, matchedSkills, missingSkills, approved: false }.
-  throw new Error("generateResumeVariant is not implemented yet");
+  const lines = String(profile.resumeText || "").replace(/\r/g, "").split("\n");
+  const candidateSkills = uniqueStrings(profile.skills || []);
+  const requiredSkills = uniqueStrings(internship.skillsRequired || []);
+  const matchedSkills = requiredSkills.filter((skill) => candidateSkills.map(normalizeSkill).includes(normalizeSkill(skill)));
+  const missingSkills = requiredSkills.filter((skill) => !candidateSkills.map(normalizeSkill).includes(normalizeSkill(skill)));
+  const index = lines.findIndex((line) => SKILLS_HEADER.test(line));
+  let content;
+  if (index >= 0) {
+    const match = lines[index].match(SKILLS_HEADER);
+    let end = index + 1;
+    let raw = match[1] || "";
+    while (end < lines.length && !OTHER_HEADER.test(lines[end])) { raw += `, ${lines[end]}`; end += 1; }
+    const tokens = splitSkillTokens(raw);
+    const reordered = tailorSkillTokens(tokens.length ? tokens : candidateSkills, requiredSkills, matchedSkills).map(prettySkill);
+    content = [...lines.slice(0, index), `Skills: ${reordered.join(", ")}`, ...lines.slice(end)].join("\n");
+  } else {
+    const ordered = tailorSkillTokens(candidateSkills, requiredSkills, matchedSkills).map(prettySkill);
+    content = [`Skills: ${ordered.join(", ")}`, "", ...lines].join("\n");
+  }
+  return { content, changeSummary: matchedSkills.length ? [`Prioritized ${matchedSkills.map(prettySkill).join(", ")} for this role.`] : ["Retained your skills without adding unverified experience."], matchedSkills, missingSkills, approved: false };
 }

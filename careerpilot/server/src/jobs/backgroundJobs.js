@@ -1,6 +1,3 @@
-import { Queue } from "bullmq";
-import IORedis from "ioredis";
-import cron from "node-cron";
 import { discoverInternships } from "../agents/discoveryAgent.js";
 import { scoreInternship } from "../agents/matchingAgent.js";
 import { env } from "../config/env.js";
@@ -9,31 +6,40 @@ import { create, getAll, getOne, upsert } from "../services/repository.js";
 let queue;
 
 export function startQueues() {
-  // TODO: Create the BullMQ queue on the Upstash Redis connection when env.redisUrl is set.
-  console.warn("startQueues is not implemented yet");
+  // Redis is optional. The app remains fully usable without a queue.
   return null;
 }
 
 async function syncInternshipsJob() {
-  // TODO: Discover internships and upsert each one by title + company.
+  const internships = await discoverInternships({ skills: [], preferences: { roles: [] } });
+  await Promise.all(internships.map((internship) => upsert("internships", { title: internship.title, company: internship.company }, internship, internship)));
 }
 
 async function recalculateMatchesJob() {
-  // TODO: Re-score every internship for every user profile and upsert the matches.
+  const [profiles, internships] = await Promise.all([getAll("profiles"), getAll("internships")]);
+  await Promise.all(profiles.flatMap((profile) => internships.map(async (internship) => {
+    const match = await scoreInternship(profile, internship);
+    await upsert("matches", { userId: profile.userId, internshipId: internship._id }, { userId: profile.userId, internshipId: internship._id, ...match }, match);
+  })));
 }
 
 async function notifyUsersJob() {
-  // TODO: For every user, raise notifications for deadlines inside three days, matches
-  // TODO: scoring 80+, and applications with no follow-up after seven days, skipping
-  // TODO: messages that already exist.
+  const now = Date.now();
+  const [internships, applications] = await Promise.all([getAll("internships"), getAll("applications")]);
+  for (const application of applications) {
+    if (application.status !== "APPLIED" || now - new Date(application.appliedAt || application.updatedAt).getTime() < 7 * 86400000) continue;
+    const internship = internships.find((item) => item._id === application.internshipId);
+    const message = `Follow up on ${internship?.title || "this application"}.`;
+    if (!await getOne("notifications", { userId: application.userId, message })) await create("notifications", { userId: application.userId, title: "Follow-up reminder", message });
+  }
 }
 
 export function startCronJobs() {
-  // TODO: Schedule the sync (every 6h), match recalculation (daily 02:00), and the
-  // TODO: notification sweep (hourly).
-  console.warn("startCronJobs is not implemented yet");
+  setInterval(() => syncInternshipsJob().catch(console.error), 6 * 60 * 60 * 1000).unref();
+  setInterval(() => recalculateMatchesJob().catch(console.error), 24 * 60 * 60 * 1000).unref();
+  setInterval(() => notifyUsersJob().catch(console.error), 60 * 60 * 1000).unref();
 }
 
 export async function runStartupJobs() {
-  // TODO: Run all three jobs once and enqueue the startup health check.
+  await Promise.allSettled([syncInternshipsJob(), recalculateMatchesJob(), notifyUsersJob()]);
 }

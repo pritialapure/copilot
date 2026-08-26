@@ -1,6 +1,6 @@
 import { seedInternships } from '../data/seedInternships.js';
 import { extractSkills } from '../utils/text.js';
-import { generateEmbedding } from './ollamaService.js';
+import { generateEmbedding } from '../services/ollamaService.js';
 import { env } from '../config/env.js';
 
 export async function fetchLiveInternships(profile) {

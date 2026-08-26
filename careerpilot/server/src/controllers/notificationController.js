@@ -3,11 +3,11 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { httpError } from "../utils/httpError.js";
 
 export const getNotifications = asyncHandler(async (req, res) => {
-  // TODO: Respond with { notifications } for this user, newest first.
-  res.status(501).json({ message: "Notification listing is not implemented yet." });
+  res.json({ notifications: await getAll("notifications", { userId: req.userId }, { createdAt: -1 }) });
 });
 
 export const markNotificationRead = asyncHandler(async (req, res) => {
-  // TODO: Verify ownership and mark the notification read.
-  res.status(501).json({ message: "Marking notifications read is not implemented yet." });
+  const notification = await getById("notifications", req.params.id);
+  if (!notification || notification.userId !== req.userId) throw httpError(404, "Notification not found");
+  res.json({ notification: await updateById("notifications", notification._id, { read: true }) });
 });
