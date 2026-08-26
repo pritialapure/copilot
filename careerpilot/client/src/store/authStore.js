@@ -22,3 +22,4 @@ export const authStore = create(
 );
 
 export default authStore;
+export const useAuthStore = authStore;

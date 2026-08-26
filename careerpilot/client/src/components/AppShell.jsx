@@ -43,7 +43,9 @@ export function AppShell() {
   });
 
   const handleLogout = () => {
-    // TODO: Clear the session and redirect to /login.
+    logout();
+    queryClient.clear();
+    navigate("/login", { replace: true });
   };
 
   useEffect(() => {

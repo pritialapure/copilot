@@ -10,11 +10,14 @@ export function ResumeUploadCard({ profile }) {
   const queryClient = useQueryClient();
   const [file, setFile] = useState(null);
   const [notice, setNotice] = useState("");
-  // TODO: Upload the PDF through profileApi.uploadResume and, on success, clear the file,
-  // TODO: show the reset notice, and invalidate every dependent query (profile,
-  // TODO: profile-history, internships, matches, resume-versions, applications,
-  // TODO: notifications, analytics) so the new resume replaces the old results.
-  const uploadMutation = useMutation({ mutationFn: () => Promise.resolve(null) });
+  const uploadMutation = useMutation({
+    mutationFn: profileApi.uploadResume,
+    onSuccess: () => {
+      setFile(null);
+      setNotice("Resume replaced successfully. Your matching pipeline has been reset.");
+      ["profile", "profile-history", "internships", "matches", "resume-versions", "applications", "notifications", "analytics"].forEach((key) => queryClient.invalidateQueries({ queryKey: [key] }));
+    }
+  });
   const hasResume = Boolean(profile?.resumeText);
 
   return (
