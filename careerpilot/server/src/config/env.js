@@ -19,6 +19,9 @@ export const env = {
   SEED_SAMPLE_DATA: process.env.SEED_SAMPLE_DATA === 'true',
   ENABLE_LIVE_DISCOVERY: process.env.ENABLE_LIVE_DISCOVERY !== 'false',
   NODE_ENV: process.env.NODE_ENV || 'development',
+  // Shared secret your automation workflow (n8n/Zapier/Make) sends as the
+  // x-ingest-key header when POSTing verified opportunities to /api/ingest/internships.
+  INGEST_API_KEY: process.env.INGEST_API_KEY || '',
 };
 
 export default env;

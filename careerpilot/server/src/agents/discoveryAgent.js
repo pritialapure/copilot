@@ -1,4 +1,5 @@
 import { seedInternships } from '../data/seedInternships.js';
+import { internshipCatalog } from '../data/internshipCatalog.js';
 import { extractSkills } from '../utils/text.js';
 import { generateEmbedding } from '../services/ollamaService.js';
 import { env } from '../config/env.js';
@@ -62,8 +63,10 @@ export async function discoverInternships(profile) {
   const live = await fetchLiveInternships(profile);
 
   // Pool: dedupe catalog + live by title::company
+  // Use the full catalog (seedInternships + additional roles) so Sync can surface
+  // internships beyond the original fixed 5 as the resume/preferences change.
   const poolMap = new Map();
-  for (const internship of seedInternships) {
+  for (const internship of internshipCatalog) {
     const key = `${internship.title}::${internship.company}`;
     poolMap.set(key, internship);
   }

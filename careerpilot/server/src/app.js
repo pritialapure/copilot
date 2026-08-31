@@ -11,6 +11,7 @@ import { applicationRoutes } from './routes/applicationRoutes.js';
 import { applicationMaterialRoutes } from './routes/applicationMaterialRoutes.js';
 import { notificationRoutes } from './routes/notificationRoutes.js';
 import { analyticsRoutes } from './routes/analyticsRoutes.js';
+import ingestRoutes from './routes/ingestRoutes.js';
 
 const app = express();
 
@@ -66,6 +67,9 @@ app.use('/api/applications', applicationRoutes);
 app.use('/api/application-materials', applicationMaterialRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/analytics', analyticsRoutes);
+// Automation-facing webhook (shared secret, not JWT) — your n8n/Zapier/Make
+// workflow POSTs verified opportunities here after its own AI-filtering step.
+app.use('/api/ingest', ingestRoutes);
 
 // 404 handler
 app.use((req, res) => {
