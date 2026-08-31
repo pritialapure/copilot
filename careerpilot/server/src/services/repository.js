@@ -79,11 +79,26 @@ export async function upsert(collection, filter, createData, updateData = {}) {
     return memoryStore.upsert(collection, filter, createData, updateData);
   }
   const Model = modelMap[collection];
-  const updated = await Model.findOneAndUpdate(
-    filter,
-    { $set: updateData, $setOnInsert: createData },
-    { upsert: true, new: true }
-  ).lean();
+  // MongoDB rejects an update where the same field path appears in both $set
+  // and $setOnInsert (error: "Updating the path 'x' would create a conflict at
+  // 'x'"). Callers throughout this app pass the same/overlapping object for
+  // both createData and updateData (e.g. "upsert this internship with these
+  // final values, whether it's new or already exists"), so we always strip any
+  // key from $setOnInsert that's already present in $set to avoid the conflict.
+  // Anything left in $setOnInsert only ever applies on the initial insert.
+  const setOnInsert = Object.fromEntries(
+    Object.entries(createData || {}).filter(([key]) => !(key in (updateData || {})))
+  );
+
+  const updateDoc = { $set: updateData };
+  if (Object.keys(setOnInsert).length > 0) {
+    updateDoc.$setOnInsert = setOnInsert;
+  }
+
+  const updated = await Model.findOneAndUpdate(filter, updateDoc, {
+    upsert: true,
+    new: true,
+  }).lean();
   return updated;
 }
 
