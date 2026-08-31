@@ -15,7 +15,11 @@ const internshipSchema = new mongoose.Schema(
     // Present when this internship was ingested from an external automation
     // (e.g. a Gmail-label workflow). Used as the primary dedupe key so the same
     // email is never inserted twice, even if title/company text varies slightly.
-    sourceMessageId: { type: String, default: null },
+    // IMPORTANT: no `default` here on purpose. A sparse unique index only skips
+    // documents where the field is truly absent — if we defaulted this to null,
+    // every catalog/live-sourced internship would store an explicit null and
+    // collide with each other under the unique constraint.
+    sourceMessageId: { type: String },
     ingestedAt: { type: Date, default: null },
   },
   { timestamps: true }

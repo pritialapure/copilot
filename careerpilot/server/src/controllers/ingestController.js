@@ -27,9 +27,9 @@ function normalizeIngestItem(raw) {
   const deadline = raw.deadline ? new Date(raw.deadline) : null;
   const postedDate = raw.postedDate ? new Date(raw.postedDate) : new Date();
 
-  const sourceMessageId = raw.sourceMessageId || raw.messageId || raw.emailId || null;
+  const sourceMessageId = raw.sourceMessageId || raw.messageId || raw.emailId || undefined;
 
-  return {
+  const normalized = {
     title,
     company,
     description,
@@ -40,9 +40,15 @@ function normalizeIngestItem(raw) {
     deadline: isNaN(deadline?.getTime()) ? null : deadline,
     postedDate: isNaN(postedDate?.getTime()) ? new Date() : postedDate,
     embedding: [],
-    sourceMessageId,
     ingestedAt: new Date(),
   };
+  // Only include sourceMessageId at all when we actually have one — omitting
+  // the key (rather than setting it to null/undefined) keeps the field truly
+  // absent for MongoDB's sparse unique index, per the note in the Internship model.
+  if (sourceMessageId) {
+    normalized.sourceMessageId = sourceMessageId;
+  }
+  return normalized;
 }
 
 export const ingestInternships = asyncHandler(async (req, res) => {
