@@ -1,6 +1,8 @@
 # CareerPilot AI
 
 CareerPilot AI is an agentic internship CRM that helps candidates manage the internship search from resume upload through application tracking and outcome analytics.
+frontend live on => https://copilot-git-main-pritialapure-1226s-projects.vercel.app
+backend live on => https://copilot-1-c5c4.onrender.com
 
 ## Features
 
