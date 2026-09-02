@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import { authApi } from '../api/queries';
-import useAuthStore from '../store/authStore';
+import { useAuthStore } from '../store/authStore';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Field from '../components/Field';
@@ -23,11 +23,8 @@ export default function Login() {
   const loginMutation = useMutation({
     mutationFn: (data) => authApi.login(data),
     onSuccess: (data) => {
-      // Store token and user in Zustand (which also persists to localStorage)
       setSession(data.token, data.user);
-      
-      // Invalidate queries and navigate
-      queryClient.clear();
+      queryClient.invalidateQueries();
       navigate('/', { replace: true });
     },
     onError: (err) => {
@@ -49,13 +46,6 @@ export default function Login() {
     }
 
     loginMutation.mutate(formData);
-  };
-
-  const fillDemoCredentials = () => {
-    setFormData({
-      email: 'demo@careerpilot.ai',
-      password: 'Password@123'
-    });
   };
 
   return (
@@ -147,7 +137,12 @@ export default function Login() {
             Password: <span className="font-mono font-bold">Password@123</span>
           </p>
           <Button
-            onClick={fillDemoCredentials}
+            onClick={() => {
+              setFormData({
+                email: 'demo@careerpilot.ai',
+                password: 'Password@123'
+              });
+            }}
             variant="secondary"
             size="sm"
             className="w-full mt-3"
