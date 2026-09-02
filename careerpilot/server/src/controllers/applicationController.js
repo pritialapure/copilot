@@ -54,7 +54,10 @@ export const getApplications = asyncHandler(async (req, res) => {
 
 export const updateApplication = asyncHandler(async (req, res) => {
   const application = await getById("applications", req.params.id);
-  if (!application || application.userId !== req.userId) throw httpError(404, "Application not found");
+  // Compare as strings: in real MongoDB mode application.userId is a Mongoose
+  // ObjectId object while req.userId (decoded from the JWT) is a plain string,
+  // so a strict !== here would always be true and 404 even the rightful owner.
+  if (!application || String(application.userId) !== String(req.userId)) throw httpError(404, "Application not found");
   const { status, nextActionDate, notes } = req.body;
   if (status && !APPLICATION_STATUSES.includes(status)) throw httpError(400, "Invalid application status");
   const data = {};
@@ -68,7 +71,7 @@ export const updateApplication = asyncHandler(async (req, res) => {
 
 export const deleteApplication = asyncHandler(async (req, res) => {
   const application = await getById("applications", req.params.id);
-  if (!application || application.userId !== req.userId) throw httpError(404, "Application not found");
+  if (!application || String(application.userId) !== String(req.userId)) throw httpError(404, "Application not found");
   await deleteById("applications", application._id);
   res.json({ success: true, id: application._id });
 });

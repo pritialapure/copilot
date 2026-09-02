@@ -25,7 +25,7 @@ export const generateApplicationMaterial = asyncHandler(async (req, res) => {
 
 export const approveApplicationMaterial = asyncHandler(async (req, res) => {
   const resumeVersion = await getById("resumeVersions", req.body.resumeVersionId);
-  if (!resumeVersion || resumeVersion.userId !== req.userId) throw httpError(404, "Resume version not found");
+  if (!resumeVersion || String(resumeVersion.userId) !== String(req.userId)) throw httpError(404, "Resume version not found");
   res.json({ resumeVersion: await updateById("resumeVersions", resumeVersion._id, { approved: true }) });
 });
 
@@ -35,7 +35,7 @@ export const listApplicationMaterials = asyncHandler(async (req, res) => {
 
 export const getApplicationMaterialPdf = asyncHandler(async (req, res) => {
   const resumeVersion = await getById("resumeVersions", req.params.id);
-  if (!resumeVersion || resumeVersion.userId !== req.userId) throw httpError(404, "Resume version not found");
+  if (!resumeVersion || String(resumeVersion.userId) !== String(req.userId)) throw httpError(404, "Resume version not found");
   const internship = await getById("internships", resumeVersion.internshipId);
   const slug = `${internship?.title || "resume"}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
   res.set({ "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="careerpilot-${slug}.pdf"` }).send(textToPdf(resumeVersion.content));
