@@ -7,36 +7,16 @@ export const useAuthStore = create(
       user: null,
       token: null,
 
-      setSession: (token, user) => set({ token, user }),
-
-      logout: () => {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_user');
-        set({ token: null, user: null });
+      setSession: (token, user) => {
+        set({ token, user });
       },
 
-      hydrate: () => {
-        const token = localStorage.getItem('auth_token');
-        const user = localStorage.getItem('auth_user');
-        if (token && user) {
-          set({ token, user: JSON.parse(user) });
-        }
-      }
+      logout: () => {
+        set({ token: null, user: null });
+      },
     }),
     {
       name: 'auth-store',
-      storage: {
-        getItem: (name) => {
-          const item = localStorage.getItem(name);
-          return item ? JSON.parse(item) : null;
-        },
-        setItem: (name, value) => {
-          localStorage.setItem(name, JSON.stringify(value));
-        },
-        removeItem: (name) => {
-          localStorage.removeItem(name);
-        }
-      }
     }
   )
 );
