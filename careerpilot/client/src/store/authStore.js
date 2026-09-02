@@ -1,25 +1,42 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export const authStore = create(
+export const useAuthStore = create(
   persist(
     (set) => ({
-      token: null,
       user: null,
+      token: null,
 
       setSession: (token, user) => set({ token, user }),
-      logout: () => set({ token: null, user: null }),
-      isAuthenticated: () => {
-        const state = authStore.getState();
-        return !!state.token && !!state.user;
+
+      logout: () => {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+        set({ token: null, user: null });
       },
+
+      hydrate: () => {
+        const token = localStorage.getItem('auth_token');
+        const user = localStorage.getItem('auth_user');
+        if (token && user) {
+          set({ token, user: JSON.parse(user) });
+        }
+      }
     }),
     {
-      name: 'careerpilot-session',
-      storage: typeof window !== 'undefined' ? localStorage : undefined,
+      name: 'auth-store',
+      storage: {
+        getItem: (name) => {
+          const item = localStorage.getItem(name);
+          return item ? JSON.parse(item) : null;
+        },
+        setItem: (name, value) => {
+          localStorage.setItem(name, JSON.stringify(value));
+        },
+        removeItem: (name) => {
+          localStorage.removeItem(name);
+        }
+      }
     }
   )
 );
-
-export default authStore;
-export const useAuthStore = authStore;

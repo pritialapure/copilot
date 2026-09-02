@@ -1,112 +1,170 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Lock, AlertCircle, Loader } from 'lucide-react';
-import client from '../api/client';
-import { authStore } from '../store/authStore';
+import { useNavigate } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { authApi } from '../api/queries';
+import { useAuthStore } from '../store/authStore';
+import Card from '../components/Card';
+import Button from '../components/Button';
+import Field from '../components/Field';
 import ErrorBanner from '../components/ErrorBanner';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { setSession } = authStore();
+  const queryClient = useQueryClient();
+  const { setSession } = useAuthStore();
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  });
 
-  const handleSubmit = async (e) => {
+  const loginMutation = useMutation({
+    mutationFn: (data) => authApi.login(data),
+    onSuccess: (data) => {
+      setSession(data.token, data.user);
+      queryClient.invalidateQueries();
+      navigate('/', { replace: true });
+    },
+    onError: (err) => {
+      setError(err.response?.data?.message || 'Login failed');
+    }
+  });
+
+  const handleSubmit = (e) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
 
-    try {
-      const response = await client.post('/auth/login', { email, password });
-      const { token, user } = response.data;
-      setSession(token, user);
-      navigate('/');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Login failed');
-    } finally {
-      setLoading(false);
+    if (!formData.email.includes('@')) {
+      setError('Valid email is required');
+      return;
     }
+    if (!formData.password) {
+      setError('Password is required');
+      return;
+    }
+
+    loginMutation.mutate(formData);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f7f8f3] to-white flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-paper flex items-center justify-center p-4">
+      <div className="w-full max-w-md animate-fade-in">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-black text-[#18212f] mb-2">CareerPilot</h1>
-          <p className="text-sm text-gray-600">AI-Powered Internship CRM</p>
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-lg bg-moss text-white text-2xl font-black mb-4">
+            CP
+          </div>
+          <h1 className="text-3xl font-black text-ink mb-2">CareerPilot</h1>
+          <p className="text-ink/60">Your AI-powered internship companion</p>
         </div>
 
-        {/* Card */}
-        <div className="bg-white rounded-lg shadow-soft p-8 border border-[#18212f]/10">
-          <h2 className="text-2xl font-bold text-[#18212f] mb-6">Welcome Back</h2>
+        {error && <ErrorBanner message={error} onClose={() => setError('')} variant="error" />}
 
-          {error && <ErrorBanner message={error} />}
-
+        <Card>
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email */}
-            <div>
-              <label className="block text-sm font-semibold text-[#18212f] mb-2">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1f7a5c] focus:border-transparent"
-                  required
-                />
-              </div>
-            </div>
+            <Field
+              label="Email Address"
+              type="email"
+              placeholder="demo@careerpilot.ai"
+              icon={Mail}
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              required
+            />
 
             {/* Password */}
-            <div>
-              <label className="block text-sm font-semibold text-[#18212f] mb-2">
+            <div className="mb-4">
+              <label className="block text-sm font-semibold text-ink mb-2">
                 Password
+                <span className="text-coral ml-1">*</span>
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
+                <Lock className="absolute left-3 top-3 w-4 h-4 text-ink/50" />
                 <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1f7a5c] focus:border-transparent"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Enter your password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full pl-10 pr-10 py-2 border border-ink/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-moss/30 focus:border-moss bg-white text-ink"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-3 text-ink/50 hover:text-ink transition"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
-            {/* Submit */}
-            <button
+            {/* Submit Button */}
+            <Button
               type="submit"
-              disabled={loading}
-              className="w-full bg-[#1f7a5c] hover:bg-[#1a6450] text-white font-semibold py-2 rounded-md transition flex items-center justify-center gap-2 disabled:opacity-50"
+              variant="primary"
+              size="lg"
+              className="w-full"
+              isLoading={loginMutation.isPending}
             >
-              {loading && <Loader className="w-4 h-4 animate-spin" />}
-              {loading ? 'Logging in...' : 'Sign In'}
-            </button>
+              {loginMutation.isPending ? 'Signing in...' : 'Sign In'}
+            </Button>
           </form>
 
-          {/* Demo credentials hint */}
-          <div className="mt-6 p-3 bg-blue-50 border border-blue-200 rounded-md text-xs text-blue-700">
-            <p className="font-semibold mb-1">Demo Account:</p>
-            <p>Email: demo@careerpilot.ai</p>
-            <p>Password: Password@123</p>
-          </div>
-
           {/* Register Link */}
-          <p className="text-center text-sm text-gray-600 mt-6">
-            Don't have an account?{' '}
-            <Link to="/register" className="text-[#1f7a5c] font-semibold hover:underline">
-              Sign up
-            </Link>
+          <div className="mt-6 text-center">
+            <p className="text-sm text-ink/60">
+              New to CareerPilot?{' '}
+              <button
+                onClick={() => navigate('/register')}
+                className="text-moss font-bold hover:text-moss/80 transition"
+              >
+                Create an account
+              </button>
+            </p>
+          </div>
+        </Card>
+
+        {/* Demo Credentials */}
+        <Card className="mt-4 bg-emerald-50 border-emerald-200">
+          <p className="text-xs font-bold uppercase text-emerald-700 mb-2">Demo Credentials</p>
+          <p className="text-sm text-emerald-700">
+            Email: <span className="font-mono font-bold">demo@careerpilot.ai</span>
           </p>
+          <p className="text-sm text-emerald-700">
+            Password: <span className="font-mono font-bold">Password@123</span>
+          </p>
+          <Button
+            onClick={() => {
+              setFormData({
+                email: 'demo@careerpilot.ai',
+                password: 'Password@123'
+              });
+            }}
+            variant="secondary"
+            size="sm"
+            className="w-full mt-3"
+          >
+            Fill Demo Credentials
+          </Button>
+        </Card>
+
+        {/* Features */}
+        <div className="mt-8 space-y-3">
+          <div className="flex gap-3 text-sm">
+            <span className="text-moss font-black text-lg">✓</span>
+            <p className="text-ink/70"><span className="font-bold">Smart Matching:</span> AI-powered internship discovery</p>
+          </div>
+          <div className="flex gap-3 text-sm">
+            <span className="text-moss font-black text-lg">✓</span>
+            <p className="text-ink/70"><span className="font-bold">Skill Analysis:</span> Identify gaps and grow</p>
+          </div>
+          <div className="flex gap-3 text-sm">
+            <span className="text-moss font-black text-lg">✓</span>
+            <p className="text-ink/70"><span className="font-bold">Track Progress:</span> Manage your journey</p>
+          </div>
         </div>
       </div>
     </div>

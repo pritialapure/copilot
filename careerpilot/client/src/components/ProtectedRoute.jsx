@@ -1,12 +1,17 @@
-import { Navigate, Outlet } from 'react-router-dom';
-import { authStore } from '../store/authStore';
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../store/authStore';
+import Breadcrumbs from '../components/Breadcrumbs';
 
 export default function ProtectedRoute() {
-  const { token } = authStore();
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
 
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
+  useEffect(() => {
+    if (!user) {
+      navigate('/login', { replace: true });
+    }
+  }, [user, navigate]);
 
-  return <Outlet />;
+  return user ? null : null;
 }

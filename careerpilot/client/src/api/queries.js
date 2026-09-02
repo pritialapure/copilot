@@ -1,90 +1,263 @@
 import { useQuery } from '@tanstack/react-query';
 import client from './client';
 
+// ==================== AUTH API ====================
+
+export const authApi = {
+  register: (data) =>
+    client.post('/auth/register', data).then((r) => r.data),
+
+  login: (data) =>
+    client.post('/auth/login', data).then((r) => r.data),
+
+  getCurrentUser: () =>
+    client.get('/auth/me').then((r) => r.data),
+};
+
+
+// ==================== PROFILE API ====================
+
 export const profileApi = {
-  get: () => client.get('/profile').then((r) => r.data),
-  history: () => client.get('/profile/history').then((r) => r.data),
-  uploadResume: (file) => { const form = new FormData(); form.append('resume', file); return client.post('/profile/upload-resume', form).then((r) => r.data); },
-  updatePreferences: (payload) => client.patch('/profile/preferences', payload).then((r) => r.data)
-};
-export const internshipApi = { list: () => client.get('/internships').then((r) => r.data), sync: () => client.post('/internships/sync').then((r) => r.data) };
-export const skillGapApi = { get: (id) => client.get(`/skill-gap/${id}`).then((r) => r.data) };
-export const applicationApi = { list: () => client.get('/applications').then((r) => r.data), create: (payload) => client.post('/applications', payload).then((r) => r.data), update: (id, payload) => client.patch(`/applications/${id}`, payload).then((r) => r.data), remove: (id) => client.delete(`/applications/${id}`).then((r) => r.data) };
-export const notificationApi = { list: () => client.get('/notifications').then((r) => r.data), read: (id) => client.patch(`/notifications/${id}/read`).then((r) => r.data) };
-export const analyticsApi = { get: () => client.get('/analytics').then((r) => r.data) };
-export const materialApi = { list: () => client.get('/application-materials').then((r) => r.data), generate: (internshipId) => client.post('/application-materials/generate', { internshipId }).then((r) => r.data), approve: (resumeVersionId) => client.post('/application-materials/approve', { resumeVersionId }).then((r) => r.data), openPdf: async (id) => { const result = await client.get(`/application-materials/${id}/pdf`, { responseType: 'blob' }); const url = URL.createObjectURL(result.data); window.open(url, '_blank', 'noopener,noreferrer'); setTimeout(() => URL.revokeObjectURL(url), 60000); } };
+  get: () =>
+    client.get('/profile').then((r) => r.data),
 
-// Profile queries
-export const useProfile = () => {
-  return useQuery({
-    queryKey: ['profile'],
-    queryFn: async () => {
-      const res = await client.get('/profile');
-      return res.data.profile;
-    },
-  });
-};
+  history: () =>
+    client.get('/profile/history').then((r) => r.data),
 
-export const useResumeHistory = () => {
-  return useQuery({
-    queryKey: ['resumeHistory'],
-    queryFn: async () => {
-      const res = await client.get('/profile/history');
-      return res.data.history;
-    },
-  });
+  uploadResume: (file) => {
+    const formData = new FormData();
+
+    formData.append('resume', file);
+
+    return client.post(
+      '/profile/upload-resume',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    ).then((r) => r.data);
+  },
+
+  updatePreferences: (preferences) =>
+    client
+      .patch('/profile/preferences', preferences)
+      .then((r) => r.data),
 };
 
-// Internship queries
+
+// ==================== INTERNSHIP API ====================
+
+export const internshipApi = {
+  list: () =>
+    client.get('/internships').then((r) => r.data),
+
+  get: (id) =>
+    client.get(`/internships/${id}`).then((r) => r.data),
+
+  sync: () =>
+    client.post('/internships/sync').then((r) => r.data),
+};
+
+
+// ==================== MATCH API ====================
+
+export const matchApi = {
+  list: () =>
+    client.get('/matches').then((r) => r.data),
+
+  generate: () =>
+    client.post('/matches/generate').then((r) => r.data),
+};
+
+
+// ==================== APPLICATION API ====================
+
+export const applicationApi = {
+  list: () =>
+    client.get('/applications').then((r) => r.data),
+
+  create: (data) =>
+    client.post('/applications', data).then((r) => r.data),
+
+  update: (id, data) =>
+    client.patch(`/applications/${id}`, data).then((r) => r.data),
+
+  remove: (id) =>
+    client.delete(`/applications/${id}`).then((r) => r.data),
+};
+
+
+// ==================== SKILL GAP API ====================
+
+export const skillGapApi = {
+  get: (internshipId) =>
+    client
+      .get(`/skill-gaps/${internshipId}`)
+      .then((r) => r.data),
+};
+
+
+// ==================== NOTIFICATION API ====================
+
+export const notificationApi = {
+  list: () =>
+    client.get('/notifications').then((r) => r.data),
+
+  read: (id) =>
+    client
+      .post(`/notifications/${id}/read`)
+      .then((r) => r.data),
+};
+
+
+// ==================== ANALYTICS API ====================
+
+export const analyticsApi = {
+  get: () =>
+    client.get('/analytics').then((r) => r.data),
+};
+
+
+// =====================================================
+// REACT QUERY HOOKS
+// =====================================================
+
+
+// -------------------- INTERNSHIPS --------------------
+
 export const useInternships = () => {
   return useQuery({
     queryKey: ['internships'],
+
     queryFn: async () => {
-      const res = await client.get('/internships');
-      return res.data.internships;
+      const data = await internshipApi.list();
+
+      // Handles multiple possible backend response formats
+      if (Array.isArray(data)) {
+        return data;
+      }
+
+      if (Array.isArray(data?.internships)) {
+        return data.internships;
+      }
+
+      if (Array.isArray(data?.data)) {
+        return data.data;
+      }
+
+      return [];
     },
   });
 };
 
-// Match queries
+
+// -------------------- APPLICATIONS --------------------
+
+export const useApplications = () => {
+  return useQuery({
+    queryKey: ['applications'],
+
+    queryFn: async () => {
+      const data = await applicationApi.list();
+
+      if (Array.isArray(data)) {
+        return data;
+      }
+
+      if (Array.isArray(data?.applications)) {
+        return data.applications;
+      }
+
+      if (Array.isArray(data?.data)) {
+        return data.data;
+      }
+
+      return [];
+    },
+  });
+};
+
+
+// -------------------- MATCHES --------------------
+
 export const useMatches = () => {
   return useQuery({
     queryKey: ['matches'],
+
     queryFn: async () => {
-      const res = await client.get('/matches');
-      return res.data.matches;
+      const data = await matchApi.list();
+
+      if (Array.isArray(data)) {
+        return data;
+      }
+
+      if (Array.isArray(data?.matches)) {
+        return data.matches;
+      }
+
+      if (Array.isArray(data?.data)) {
+        return data.data;
+      }
+
+      return [];
     },
   });
 };
 
-export const useGenerateMatches = () => {
+
+// -------------------- PROFILE --------------------
+
+export const useProfile = () => {
   return useQuery({
-    queryKey: ['generateMatches'],
+    queryKey: ['profile'],
+
     queryFn: async () => {
-      const res = await client.post('/matches/generate');
-      return res.data.matches;
+      return await profileApi.get();
     },
-    enabled: false,
   });
 };
 
-// Skill gap query
-export const useSkillGap = (internshipId) => {
+
+// -------------------- NOTIFICATIONS --------------------
+
+export const useNotifications = () => {
   return useQuery({
-    queryKey: ['skillGap', internshipId],
+    queryKey: ['notifications'],
+
     queryFn: async () => {
-      const res = await client.get(`/skill-gap/${internshipId}`);
-      return res.data.skillGap;
+      const data = await notificationApi.list();
+
+      if (Array.isArray(data)) {
+        return data;
+      }
+
+      if (Array.isArray(data?.notifications)) {
+        return data.notifications;
+      }
+
+      if (Array.isArray(data?.data)) {
+        return data.data;
+      }
+
+      return [];
     },
-    enabled: !!internshipId,
   });
 };
 
-export default {
-  useProfile,
-  useResumeHistory,
-  useInternships,
-  useMatches,
-  useGenerateMatches,
-  useSkillGap,
+
+// -------------------- ANALYTICS --------------------
+
+export const useAnalytics = () => {
+  return useQuery({
+    queryKey: ['analytics'],
+
+    queryFn: async () => {
+      return await analyticsApi.get();
+    },
+  });
 };
+
+
+export default client;

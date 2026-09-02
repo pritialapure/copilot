@@ -1,19 +1,26 @@
-import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useProfile, useMatches } from '../api/queries';
-import { authStore } from '../store/authStore';
-import client from '../api/client';
-import { useQueryClient } from '@tanstack/react-query';
+import { useProfile, useMatches, useInternships, useApplications } from '../api/queries';
+import { useAuthStore } from '../store/authStore';
+import { useState } from 'react';
+import { Sparkles, TrendingUp, Users } from 'lucide-react';
 import WorkflowGraph from '../components/WorkflowGraph';
 import LoadingState from '../components/LoadingState';
-import { Loader, AlertCircle } from 'lucide-react';
+import Button from '../components/Button';
+import Card from '../components/Card';
+import MetricCard from '../components/MetricCard';
+import Badge from '../components/Badge';
+import ProgressBar from '../components/ProgressBar';
+import client from '../api/client';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user, logout } = authStore();
+  const { user } = useAuthStore();
   const { data: profile, isLoading: profileLoading } = useProfile();
   const { data: matches, isLoading: matchesLoading } = useMatches();
+  const { data: internshipsData, isLoading: internshipsLoading } = useInternships();
+  const { data: applicationsData } = useApplications();
   const [generatingMatches, setGeneratingMatches] = useState(false);
 
   const handleGenerateMatches = async () => {
@@ -28,128 +35,224 @@ export default function Dashboard() {
     }
   };
 
-  if (!user) {
-    navigate('/login');
-    return null;
-  }
-
   if (profileLoading) return <LoadingState message="Loading dashboard..." />;
 
-  const hasResume = profile?.resumeText && profile.resumeText.length > 0;
+  const hasResume = profile?.resumeText && profile.resumeText.length > 30;
   const matchCount = matches?.length || 0;
   const topMatches = matches?.slice(0, 3) || [];
+  const internships = Array.isArray(internshipsData) ? internshipsData : internshipsData?.internships || [];
+  const applications = applicationsData?.applications || [];
+  const appliedCount = applications.filter(app => app.status === 'APPLIED').length;
+  
+  // Calculate progress
+  const totalSteps = 8;
+  let activeSteps = 0;
+  if (hasResume) activeSteps++;
+  if (internships.length > 0) activeSteps++;
+  if (matchCount > 0) activeSteps++;
+  const progressPercent = (activeSteps / totalSteps) * 100;
 
   return (
-    <div className="min-h-screen bg-[#f7f8f3]">
-      {/* Header */}
-      <header className="bg-white shadow-soft border-b border-[#18212f]/10 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+    <div className="space-y-6 animate-fade-in">
+      {/* Progress Section */}
+      <Card>
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-black text-[#18212f]">CareerPilot</h1>
-            <p className="text-xs text-gray-600">AI-Powered Internship CRM</p>
+            <h2 className="text-2xl font-black text-ink mb-1">Your Journey</h2>
+            <p className="text-sm text-ink/60">Track your progress through the CareerPilot pipeline</p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-sm font-semibold text-[#18212f]">{user.name}</p>
-              <p className="text-xs text-gray-600">{user.email}</p>
-            </div>
-            <button
-              onClick={() => {
-                logout();
-                navigate('/login');
-              }}
-              className="px-4 py-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-md text-sm font-semibold transition"
-            >
-              Logout
-            </button>
+          <div className="text-right">
+            <p className="text-2xl font-black text-moss">{Math.round(progressPercent)}%</p>
+            <p className="text-xs font-semibold text-ink/60">complete</p>
           </div>
         </div>
-      </header>
+        <ProgressBar progress={progressPercent} color="moss" />
+      </Card>
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* Status Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-soft p-6 border border-blue-200">
-            <p className="text-sm text-blue-700 font-semibold mb-1">Resume Status</p>
-            <p className="text-2xl font-black text-blue-900">{hasResume ? '✅ Ready' : '⏳ Pending'}</p>
-            <p className="text-xs text-blue-700 mt-2">{hasResume ? 'Skills extracted' : 'Upload your resume'}</p>
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <MetricCard
+          title="Resume Status"
+          value={hasResume ? '✓' : '–'}
+          color={hasResume ? 'success' : 'info'}
+          icon={FileCheck}
+        />
+        <MetricCard
+          title="Internships Found"
+          value={internships.length}
+          color="info"
+          icon={Globe}
+        />
+        <MetricCard
+          title="Matches Generated"
+          value={matchCount}
+          color={matchCount > 0 ? 'success' : 'warning'}
+          icon={Target}
+        />
+        <MetricCard
+          title="Applications Sent"
+          value={appliedCount}
+          color="primary"
+          icon={CheckCircle}
+        />
+      </div>
+
+      {/* Workflow Graph */}
+      <WorkflowGraph activeStages={Array.from({ length: activeSteps }, (_, i) => i + 1)} />
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card hover className="flex flex-col justify-between">
+          <div className="mb-4">
+            <h3 className="text-lg font-black text-ink mb-2">📄 {hasResume ? 'Update' : 'Upload'} Resume</h3>
+            <p className="text-sm text-ink/60">
+              {hasResume
+                ? 'Replace with a new version to reset pipeline'
+                : 'Get started by uploading your resume'
+              }
+            </p>
           </div>
-
-          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg shadow-soft p-6 border border-green-200">
-            <p className="text-sm text-green-700 font-semibold mb-1">Matches Found</p>
-            <p className="text-2xl font-black text-green-900">{matchCount}</p>
-            <p className="text-xs text-green-700 mt-2">{matchCount > 0 ? 'Ready to explore' : 'Generate matches'}</p>
-          </div>
-
-          <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg shadow-soft p-6 border border-purple-200">
-            <p className="text-sm text-purple-700 font-semibold mb-1">Next Action</p>
-            <p className="text-2xl font-black text-purple-900">{hasResume && matchCount > 0 ? '🚀' : '📝'}</p>
-            <p className="text-xs text-purple-700 mt-2">{hasResume && matchCount > 0 ? 'Explore matches' : 'Start here'}</p>
-          </div>
-        </div>
-
-        {/* Workflow */}
-        <WorkflowGraph />
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
-          <button
+          <Button
             onClick={() => navigate('/profile')}
-            className="bg-white rounded-lg shadow-soft p-6 border border-[#18212f]/10 hover:shadow-lg transition text-left"
+            variant="primary"
+            size="md"
+            className="w-full"
           >
-            <h3 className="text-lg font-bold text-[#18212f] mb-2">📄 {hasResume ? 'Update' : 'Upload'} Resume</h3>
-            <p className="text-sm text-gray-600">{hasResume ? 'Replace with a new version' : 'Get started by uploading your resume'}</p>
-          </button>
+            {hasResume ? 'Update Resume' : 'Upload Resume'}
+          </Button>
+        </Card>
 
-          <button
+        <Card hover className="flex flex-col justify-between">
+          <div className="mb-4">
+            <h3 className="text-lg font-black text-ink mb-2">🎯 {matchCount > 0 ? 'View' : 'Generate'} Matches</h3>
+            <p className="text-sm text-ink/60">
+              {matchCount > 0
+                ? `You have ${matchCount} matches. Find your best-fit internships`
+                : 'Find your best-fit internships based on your resume'
+              }
+            </p>
+          </div>
+          <Button
             onClick={hasResume ? handleGenerateMatches : () => navigate('/profile')}
+            isLoading={generatingMatches}
+            variant={matchCount > 0 ? 'secondary' : 'primary'}
+            size="md"
+            className="w-full"
             disabled={generatingMatches || !hasResume}
-            className="bg-white rounded-lg shadow-soft p-6 border border-[#18212f]/10 hover:shadow-lg transition text-left disabled:opacity-50"
           >
-            <h3 className="text-lg font-bold text-[#18212f] mb-2 flex items-center gap-2">
-              {generatingMatches ? <Loader className="w-5 h-5 animate-spin" /> : '🎯'} Generate Matches
-            </h3>
-            <p className="text-sm text-gray-600">{generatingMatches ? 'Generating...' : 'Find your best-fit internships'}</p>
-          </button>
+            {generatingMatches ? 'Generating...' : matchCount > 0 ? 'View All Matches' : 'Generate Matches'}
+          </Button>
+        </Card>
 
-          <button
+        <Card hover className="flex flex-col justify-between">
+          <div className="mb-4">
+            <h3 className="text-lg font-black text-ink mb-2">🌐 Explore Internships</h3>
+            <p className="text-sm text-ink/60">Browse all available opportunities and opportunities</p>
+          </div>
+          <Button
             onClick={() => navigate('/internships')}
-            className="bg-white rounded-lg shadow-soft p-6 border border-[#18212f]/10 hover:shadow-lg transition text-left"
+            variant="secondary"
+            size="md"
+            className="w-full"
           >
-            <h3 className="text-lg font-bold text-[#18212f] mb-2">🌐 Explore Internships</h3>
-            <p className="text-sm text-gray-600">Browse all available opportunities</p>
-          </button>
+            Start Exploring
+          </Button>
+        </Card>
 
-          <button
+        <Card hover className="flex flex-col justify-between">
+          <div className="mb-4">
+            <h3 className="text-lg font-black text-ink mb-2">⚙️ Preferences</h3>
+            <p className="text-sm text-ink/60">Set roles, location, and work mode preferences</p>
+          </div>
+          <Button
             onClick={() => navigate('/profile')}
-            className="bg-white rounded-lg shadow-soft p-6 border border-[#18212f]/10 hover:shadow-lg transition text-left"
+            variant="secondary"
+            size="md"
+            className="w-full"
           >
-            <h3 className="text-lg font-bold text-[#18212f] mb-2">⚙️ Preferences</h3>
-            <p className="text-sm text-gray-600">Set role, location, and work mode</p>
-          </button>
-        </div>
+            Edit Preferences
+          </Button>
+        </Card>
+      </div>
 
-        {/* Top Matches */}
-        {topMatches.length > 0 && (
-          <div className="mt-8 bg-white rounded-lg shadow-soft p-8 border border-[#18212f]/10">
-            <h2 className="text-xl font-bold text-[#18212f] mb-4">🏆 Your Top Matches</h2>
-            <div className="space-y-3">
-              {topMatches.map(match => (
-                <div key={match._id} className="flex justify-between items-center p-3 bg-gray-50 rounded-md border border-gray-200">
-                  <div>
-                    <p className="font-semibold text-[#18212f]">{match.internship?.title}</p>
-                    <p className="text-sm text-gray-600">{match.internship?.company}</p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-black text-[#1f7a5c]">{match.score}%</div>
-                    <p className="text-xs text-gray-600">Match</p>
+      {/* Top Matches Section */}
+      {topMatches.length > 0 && (
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-xl font-black text-ink mb-1">🏆 Top Matches for You</h3>
+              <p className="text-sm text-ink/60">Your best-fit internships based on your resume</p>
+            </div>
+            <Button
+              onClick={() => navigate('/internships')}
+              variant="ghost"
+              size="sm"
+            >
+              View All →
+            </Button>
+          </div>
+          <div className="space-y-3">
+            {topMatches.map((match, idx) => (
+              <div
+                key={match._id}
+                className="flex items-center justify-between p-4 bg-ink/5 rounded-lg hover:bg-ink/10 transition cursor-pointer stagger-item"
+                onClick={() => navigate(`/internships/${match.internshipId}`)}
+              >
+                <div className="flex-1">
+                  <p className="font-bold text-ink">{match.internship?.title}</p>
+                  <p className="text-sm text-ink/60">{match.internship?.company}</p>
+                </div>
+                <div className="text-right">
+                  <div className={cx(
+                    'text-2xl font-black px-3 py-2 rounded-lg',
+                    match.score >= 80 ? 'bg-emerald-100 text-emerald-700' :
+                    match.score >= 60 ? 'bg-blue-100 text-blue-700' :
+                    'bg-amber-100 text-amber-700'
+                  )}>
+                    {match.score}%
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
-        )}
-      </main>
+        </Card>
+      )}
     </div>
   );
+}
+
+function FileCheck(props) {
+  return (
+    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
+
+function Globe(props) {
+  return (
+    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m0 0C5.088 3 3 5.088 3 12s2.088 9 5 9m0 0c1.657 0 3-4.03 3-9s-1.343-9-3-9" />
+    </svg>
+  );
+}
+
+function Target(props) {
+  return (
+    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+    </svg>
+  );
+}
+
+function CheckCircle(props) {
+  return (
+    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
+
+function cx(...classes) {
+  return classes.filter(Boolean).join(' ');
 }

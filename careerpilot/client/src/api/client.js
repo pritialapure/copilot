@@ -1,31 +1,31 @@
 import axios from 'axios';
-import { authStore } from '../store/authStore';
+import { useAuthStore } from '../store/authStore';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const client = axios.create({
-  baseURL: API_URL,
-  timeout: 10000,
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json'
+  }
 });
 
-// Request interceptor: add Bearer token
-client.interceptors.request.use(
-  (config) => {
-    const { token } = authStore.getState();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+// Add token to requests
+client.interceptors.request.use((config) => {
+  const token = localStorage.getItem('auth_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
-// Response interceptor: handle 401 (logout)
+// Handle 401 errors
 client.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      authStore.getState().logout();
+      const { logout } = useAuthStore.getState?.() || {};
+      if (logout) logout();
       window.location.href = '/login';
     }
     return Promise.reject(error);
