@@ -1,78 +1,130 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { FileCheck2, Upload } from "lucide-react";
-import { useState } from "react";
-import { profileApi } from "../api/queries";
-import { Button } from "./Button";
-import { ErrorBanner } from "./ErrorBanner";
-import { inputClass } from "./Field";
+import { FileText, Loader, AlertCircle, Plus } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useRef } from 'react';
+import { profileApi } from '../api/queries';
+import Button from './Button';
+import ErrorBanner from './ErrorBanner';
+import Card from './Card';
+import Badge from './Badge';
 
-export function ResumeUploadCard({ profile }) {
+export default function ResumeUploadCard({ profile }) {
   const queryClient = useQueryClient();
-  const [file, setFile] = useState(null);
-  const [notice, setNotice] = useState("");
+  const fileInputRef = useRef(null);
+  const [error, setError] = useState('');
+
   const uploadMutation = useMutation({
-    mutationFn: profileApi.uploadResume,
+    mutationFn: (file) => profileApi.uploadResume(file),
     onSuccess: () => {
-      setFile(null);
-      setNotice("Resume replaced successfully. Your matching pipeline has been reset.");
-      ["profile", "profile-history", "internships", "matches", "resume-versions", "applications", "notifications", "analytics"].forEach((key) => queryClient.invalidateQueries({ queryKey: [key] }));
+      setError('');
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+      queryClient.invalidateQueries({ queryKey: ['profile-history'] });
+      queryClient.invalidateQueries({ queryKey: ['internships'] });
+      queryClient.invalidateQueries({ queryKey: ['matches'] });
+      queryClient.invalidateQueries({ queryKey: ['resume-versions'] });
+      queryClient.invalidateQueries({ queryKey: ['applications'] });
+    },
+    onError: (err) => {
+      setError(err.response?.data?.message || 'Failed to upload resume');
     }
   });
-  const hasResume = Boolean(profile?.resumeText);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      setError('Please upload a PDF file');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('File size must be less than 5MB');
+      return;
+    }
+
+    uploadMutation.mutate(file);
+  };
+
+  const hasResume = profile?.resumeText && profile.resumeText.length > 30;
 
   return (
-    <section className="rounded-lg border border-ink/10 bg-white p-5 shadow-soft">
-      <div className="flex items-start justify-between gap-3">
+    <Card className="mb-8">
+      {error && <ErrorBanner message={error} onClose={() => setError('')} variant="error" />}
+
+      <div className="flex items-start justify-between mb-6">
         <div>
-          <h2 className="text-xl font-black text-ink">Resume Upload</h2>
-          <p className="text-sm font-semibold text-ink/55">
-            {hasResume ? "Profile agent has parsed a resume." : "Upload a PDF resume to start matching."}
+          <h3 className="text-xl font-black text-ink mb-1">{hasResume ? '📄 Update Resume' : '📄 Upload Resume'}</h3>
+          <p className="text-sm text-ink/60">
+            {hasResume
+              ? 'Replace with a new version to reset the pipeline'
+              : 'Get started by uploading your resume (PDF)'
+            }
           </p>
         </div>
-        <div className="grid h-11 w-11 place-items-center rounded-md bg-moss/10 text-moss">
-          <FileCheck2 className="h-5 w-5" />
+        <div className="text-right">
+          <p className="text-xs font-semibold text-ink/50">Max 5MB</p>
+          <p className="text-xs text-ink/40">PDF only</p>
         </div>
       </div>
 
-      <ErrorBanner error={uploadMutation.error} />
-      <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+      {/* Drop Zone */}
+      <div
+        className="border-2 border-dashed border-moss/30 hover:border-moss/60 bg-moss/5 hover:bg-moss/10 rounded-lg p-8 text-center transition cursor-pointer mb-6"
+        onClick={() => fileInputRef.current?.click()}
+        onDrop={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const file = e.dataTransfer.files?.[0];
+          if (file) {
+            handleFileChange({ target: { files: [file] } });
+          }
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+      >
+        <FileText className="w-12 h-12 text-moss/60 mx-auto mb-3" />
+        <p className="text-sm font-semibold text-ink mb-1">Drop your PDF here or click to browse</p>
+        <p className="text-xs text-ink/60">Supported format: PDF</p>
         <input
-          className={inputClass}
+          ref={fileInputRef}
           type="file"
-          accept="application/pdf"
-          onChange={(event) => setFile(event.target.files?.[0] || null)}
+          accept=".pdf"
+          onChange={handleFileChange}
+          className="hidden"
+          disabled={uploadMutation.isPending}
         />
-        <Button
-          icon={Upload}
-          loading={uploadMutation.isPending}
-          disabled={!file}
-          onClick={() => {
-            setNotice("");
-            if (file) uploadMutation.mutate(file);
-          }}
-        >
-          Upload
-        </Button>
       </div>
 
-      {notice ? (
-        <p className="mt-3 rounded-md bg-moss/10 px-3 py-2 text-sm font-bold text-moss">{notice}</p>
-      ) : null}
-
-      <div className="mt-5">
-        <h3 className="text-sm font-black uppercase tracking-[0.16em] text-ink/45">Extracted Skills</h3>
-        <div className="mt-3 flex min-h-10 flex-wrap gap-2">
-          {(profile?.skills || []).length ? (
-            profile.skills.slice(0, 12).map((skill) => (
-              <span key={skill} className="rounded-full bg-moss/10 px-3 py-1 text-xs font-black text-moss">
-                {skill}
-              </span>
-            ))
-          ) : (
-            <p className="text-sm font-semibold text-ink/55">No resume skills extracted yet.</p>
-          )}
+      {/* Skills Display */}
+      {hasResume && profile?.skills && (
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <h4 className="text-sm font-black text-ink">Extracted Skills</h4>
+            <Badge variant="success">{profile.skills.length}</Badge>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {profile.skills.slice(0, 12).map((skill, idx) => (
+              <Badge key={idx} variant="primary">{skill}</Badge>
+            ))}
+            {profile.skills.length > 12 && (
+              <Badge variant="neutral">+{profile.skills.length - 12} more</Badge>
+            )}
+          </div>
         </div>
-      </div>
-    </section>
+      )}
+
+      {/* Action Button */}
+      <Button
+        onClick={() => fileInputRef.current?.click()}
+        isLoading={uploadMutation.isPending}
+        icon={uploadMutation.isPending ? undefined : Plus}
+        size="lg"
+        className="w-full"
+      >
+        {uploadMutation.isPending ? 'Uploading...' : hasResume ? 'Replace Resume' : 'Upload Resume'}
+      </Button>
+    </Card>
   );
 }
