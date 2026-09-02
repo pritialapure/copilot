@@ -1,53 +1,75 @@
 import express from 'express';
 import cors from 'cors';
+
 import { env } from './config/env.js';
 import { errorHandler } from './middleware/errorHandler.js';
+
 import authRoutes from './routes/authRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
 import internshipRoutes from './routes/internshipRoutes.js';
 import matchRoutes from './routes/matchRoutes.js';
 import skillGapRoutes from './routes/skillGapRoutes.js';
+
 import { applicationRoutes } from './routes/applicationRoutes.js';
 import { applicationMaterialRoutes } from './routes/applicationMaterialRoutes.js';
 import { notificationRoutes } from './routes/notificationRoutes.js';
 import { analyticsRoutes } from './routes/analyticsRoutes.js';
+
 import ingestRoutes from './routes/ingestRoutes.js';
 
 const app = express();
 
-// CORS Configuration
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow no-origin requests (mobile apps, Postman, etc.)
-    if (!origin) return callback(null, true);
+// ================================
+// CORS CONFIGURATION
+// ================================
 
-    // Allow configured origins
-    if (env.CLIENT_URLS.includes(origin)) {
-      return callback(null, true);
-    }
+const allowedOrigins = [
+  env.CLIENT_URL,
+  ...(env.CLIENT_URLS || []),
 
-    // Allow CLIENT_URL
-    if (origin === env.CLIENT_URL) {
-      return callback(null, true);
-    }
+  // Local development
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
+];
 
-    // In development, allow localhost and private networks
-    if (env.NODE_ENV === 'development') {
-      const localhostRegex = /^http:\/\/(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+):\d+$/;
-      if (localhostRegex.test(origin)) {
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests without origin
+      if (!origin) {
         return callback(null, true);
       }
-    }
 
-    callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true,
-};
+      // Allow configured origins
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
 
-app.use(cors(corsOptions));
+      // Allow private/local network IPs on Vite ports
+      const localNetworkRegex =
+        /^http:\/\/(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+):(5173|5174)$/;
+
+      if (localNetworkRegex.test(origin)) {
+        return callback(null, true);
+      }
+
+      console.log('CORS blocked:', origin);
+
+      return callback(new Error(`Not allowed by CORS: ${origin}`));
+    },
+
+    credentials: true,
+  })
+);
+
 app.use(express.json({ limit: '1mb' }));
 
-// Health check
+// ================================
+// HEALTH CHECK
+// ================================
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
@@ -57,7 +79,10 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Routes
+// ================================
+// ROUTES
+// ================================
+
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/internships', internshipRoutes);
@@ -67,16 +92,23 @@ app.use('/api/applications', applicationRoutes);
 app.use('/api/application-materials', applicationMaterialRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/analytics', analyticsRoutes);
-// Automation-facing webhook (shared secret, not JWT) — your n8n/Zapier/Make
-// workflow POSTs verified opportunities here after its own AI-filtering step.
+
 app.use('/api/ingest', ingestRoutes);
 
-// 404 handler
+// ================================
+// 404 HANDLER
+// ================================
+
 app.use((req, res) => {
-  res.status(404).json({ message: 'Route not found' });
+  res.status(404).json({
+    message: 'Route not found',
+  });
 });
 
-// Error handler (must be last)
+// ================================
+// ERROR HANDLER
+// ================================
+
 app.use(errorHandler);
 
 export default app;
