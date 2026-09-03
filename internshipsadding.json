@@ -1,0 +1,337 @@
+{
+  "name": "internshipsadding",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyHour"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "q": "label:\"Placement Opportunities\""
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -144,
+        0
+      ],
+      "id": "e831f770-00ed-4869-a1e6-0f879fa17d69",
+      "name": "Gmail Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "cxm3hL1rHhaRZ6ko",
+          "name": "Gmail account 3661"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "text": "=Subject: {{ $json.subject }}\nFrom: {{ $json.from.text }}\nDate: {{ $json.date }}\n\nBody:\n{{ $json.text }}",
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"genuineOpportunity\": {\n      \"type\": \"boolean\",\n      \"description\": \"True only if this email describes a specific, real internship/job/placement opportunity with an identifiable company and a role or application process. False for generic circulars, reminders, event announcements, result declarations, or anything without an actual hiring opportunity.\"\n    },\n    \"company\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"The hiring company or organization name. Null if not clearly stated.\"\n    },\n    \"role\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"The job title or internship role, e.g. 'Software Developer Intern'. Null if not stated.\"\n    },\n    \"opportunityType\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"One of: Internship, Full-Time Job, Internship with PPO, Trainee Program, or null if unclear.\"\n    },\n    \"location\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Work location city/state, or 'Remote' if explicitly remote. Null if not mentioned.\"\n    },\n    \"eligibility\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Eligible degree/branch/batch/CGPA criteria exactly as stated. Null if not mentioned.\"\n    },\n    \"salaryOrStipend\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Stipend, salary, or CTC figures exactly as stated, including currency. Null if not mentioned.\"\n    },\n    \"deadline\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"Application deadline in YYYY-MM-DD format if a date is stated. Null if no deadline is mentioned.\"\n    },\n    \"applicationLink\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"The direct URL to apply or register (form link, portal link, or careers page). Null if no link is present.\"\n    },\n    \"description\": {\n      \"type\": [\"string\", \"null\"],\n      \"description\": \"A short 1-2 sentence neutral summary of the role, written by you, not copied verbatim from the email.\"\n    }\n  },\n  \"required\": [\"genuineOpportunity\"]\n}",
+        "options": {
+          "systemPromptTemplate": "You are screening emails from a college's Central Placement Cell for genuine student internship, job, or placement opportunities.\n\nExtract the fields defined in the schema from the email below.\n\nRules:\n- Only extract real, specific opportunities that name an actual company/organization and describe a role or hiring process. If the email is a generic circular, a reminder, an event announcement, a result declaration, or otherwise not a specific hiring opportunity, still fill the fields as best you can from whatever is genuinely stated.\n- Never invent, guess, or infer information that is not explicitly present in the email text. If a field's value is not clearly stated, return null for that field. Do not use placeholder text like \"Not mentioned\" or \"N/A\" — use null.\n- For \"deadline\", only return a value if an actual date is stated, converted to YYYY-MM-DD. If only a relative phrase like \"apply soon\" is given with no date, return null.\n- For \"applicationLink\", prefer a direct form/portal/registration URL over a generic company website link. If multiple links appear, choose the one most clearly labeled as the application/registration link.\n- For \"description\", write a brief neutral 1-2 sentence summary in your own words — do not copy long verbatim passages from the email.\n- Preserve currency symbols and exact figures for salaryOrStipend and eligibility criteria exactly as written."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        64,
+        0
+      ],
+      "id": "96a3e0ab-f904-4213-9b7f-67ba8fb4b00e",
+      "name": "Information Extractor",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        64,
+        208
+      ],
+      "id": "2d7c4952-7c0f-41c6-b20f-147b428d9a95",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "JNeJw3fDkfkaMeEg",
+          "name": "Google Gemini(PaLM) Api account 7441"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e863ce63-44a4-4de5-9e31-bf04dd33c282",
+              "leftValue": "={{ $json.output.genuineOpportunity }}",
+              "rightValue": "=",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        416,
+        0
+      ],
+      "id": "3a16eed6-3876-420a-b2f4-e86f19e89a4b",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "url": "https://copilot-1-c5c4.onrender.com/api/ingest/internships",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-ingest-key",
+              "value": "cpai_ingest_7f3a9d2e1b6c4f8a0d5e2c9b7a1f6e3d"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        624,
+        -48
+      ],
+      "id": "89dd7e52-491d-4bf7-8b6d-8c95f9a65d2c",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pull the unique Gmail message ID from the original trigger\nconst messageId = $('Gmail Trigger').first().json.id;\n\n// Pull the fields the AI extracted earlier in this chain\nconst extracted = $('Information Extractor').first().json.output;\n\n// This node's own input = the HTTP Request node's response (the existing internships list)\nconst existingInternships = $input.first().json.internships || [];\n\n// Check if this exact email was already ingested before\nconst isDuplicate = existingInternships.some(\n  (item) => item.sourceMessageId === messageId\n);\n\nreturn [\n  {\n    json: {\n      ...extracted,\n      sourceMessageId: messageId,\n      isDuplicate,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        -48
+      ],
+      "id": "852d2327-f79d-42a3-9dc8-582d5e739027",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "227590fa-352c-4d63-8ea9-19b3c60e5ec1",
+              "leftValue": "={{ $json.isDuplicate }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1040,
+        -48
+      ],
+      "id": "edce69c1-c0ea-4e86-9a40-3928eeabce17",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://copilot-1-c5c4.onrender.com/api/ingest/internships",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-ingest-key",
+              "value": "cpai_ingest_7f3a9d2e1b6c4f8a0d5e2c9b7a1f6e3d"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "title",
+              "value": "=title"
+            },
+            {
+              "name": "company",
+              "value": "={{ $json.company }}"
+            },
+            {
+              "name": "description",
+              "value": "={{ $json.description }}"
+            },
+            {
+              "name": "location",
+              "value": "={{ $json.location }}"
+            },
+            {
+              "name": "applyLink",
+              "value": "={{ $json.applicationLink }}"
+            },
+            {
+              "name": "deadline",
+              "value": "={{ $json.deadline }}"
+            },
+            {
+              "name": "sourceMessageId\t",
+              "value": "={{ $json.sourceMessageId }}"
+            },
+            {
+              "name": "source",
+              "value": "College Placement Cell"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1248,
+        -144
+      ],
+      "id": "75f51c56-24e9-45c4-9d11-7fd822584825",
+      "name": "HTTP Request1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Information Extractor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Information Extractor",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Information Extractor": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "6614186c-3804-466d-8aa2-e35b9dc529e0",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "969257b09ad2942bbaff2e2288304f4969030574d109cdeca05bf11f630884df"
+  },
+  "id": "vFu9OCgXuOxLSrkF",
+  "tags": []
+}
